@@ -242,13 +242,20 @@ function LecturesAdmin() {
         {lectures.map((l: any) => (
           <div key={l.id} className="bg-card border border-border rounded-xl p-4 flex items-center gap-3">
             <div className="flex-1">
-              <p className="font-semibold">{l.title}</p>
+              <p className="font-semibold flex items-center gap-2">
+                {l.title}
+                {l.is_free && <span className="bg-accent/10 text-accent font-bold px-2 py-0.5 rounded uppercase text-[10px]">Free</span>}
+              </p>
               <p className="text-xs text-muted-foreground">{l.is_live ? "Live" : "Recorded"} • {l.duration_minutes ?? 0} min • {l.materials?.length ?? 0} materials</p>
             </div>
+            <Link to="/lectures/$lectureId" params={{ lectureId: l.id }}>
+              <Button size="sm" variant="outline"><Play className="size-4 mr-1" /> Preview</Button>
+            </Link>
             <LectureDialog batchId={batchId} initial={l} onSaved={() => qc.invalidateQueries({ queryKey: ["admin-lectures"] })} trigger={<Button size="sm" variant="ghost"><Pencil className="size-4" /></Button>} />
             <Button size="sm" variant="ghost" onClick={() => { if (confirm("Delete?")) del.mutate(l.id); }}><Trash2 className="size-4 text-destructive" /></Button>
           </div>
         ))}
+
         {batchId && lectures.length === 0 && <p className="text-muted-foreground text-sm">No lectures yet.</p>}
       </div>
     </div>
