@@ -327,9 +327,13 @@ function LectureDialog({ batchId, initial, onSaved, trigger }: any) {
             <div><Label>Duration (min)</Label><Input type="number" value={form.duration_minutes ?? 0} onChange={(e) => setForm({ ...form, duration_minutes: e.target.value })} /></div>
             <div><Label>Order</Label><Input type="number" value={form.order_index ?? 0} onChange={(e) => setForm({ ...form, order_index: e.target.value })} /></div>
           </div>
+          <div className="flex items-center justify-between"><Label>Free preview lecture</Label>
+            <Switch checked={!!form.is_free} onCheckedChange={(v) => setForm({ ...form, is_free: v })} />
+          </div>
           <div className="flex items-center justify-between"><Label>Live class</Label>
             <Switch checked={form.is_live} onCheckedChange={(v) => setForm({ ...form, is_live: v })} />
           </div>
+
           {form.is_live && (
             <div><Label>Scheduled at</Label><Input type="datetime-local" value={form.scheduled_at} onChange={(e) => setForm({ ...form, scheduled_at: e.target.value })} /></div>
           )}
