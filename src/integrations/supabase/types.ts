@@ -91,6 +91,44 @@ export type Database = {
           },
         ]
       }
+      lecture_progress: {
+        Row: {
+          completed: boolean
+          id: string
+          lecture_id: string
+          position_seconds: number
+          student_id: string
+          updated_at: string
+          watch_percent: number
+        }
+        Insert: {
+          completed?: boolean
+          id?: string
+          lecture_id: string
+          position_seconds?: number
+          student_id: string
+          updated_at?: string
+          watch_percent?: number
+        }
+        Update: {
+          completed?: boolean
+          id?: string
+          lecture_id?: string
+          position_seconds?: number
+          student_id?: string
+          updated_at?: string
+          watch_percent?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lecture_progress_lecture_id_fkey"
+            columns: ["lecture_id"]
+            isOneToOne: false
+            referencedRelation: "lectures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lectures: {
         Row: {
           batch_id: string
@@ -98,6 +136,7 @@ export type Database = {
           description: string | null
           duration_minutes: number | null
           id: string
+          is_free: boolean
           is_live: boolean
           order_index: number
           scheduled_at: string | null
@@ -112,6 +151,7 @@ export type Database = {
           description?: string | null
           duration_minutes?: number | null
           id?: string
+          is_free?: boolean
           is_live?: boolean
           order_index?: number
           scheduled_at?: string | null
@@ -126,6 +166,7 @@ export type Database = {
           description?: string | null
           duration_minutes?: number | null
           id?: string
+          is_free?: boolean
           is_live?: boolean
           order_index?: number
           scheduled_at?: string | null
