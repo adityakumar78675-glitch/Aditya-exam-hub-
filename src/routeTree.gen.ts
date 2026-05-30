@@ -22,6 +22,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedBatchesRouteImport } from './routes/_authenticated/batches'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as ApiPublicInitAdminRouteImport } from './routes/api/public/init-admin'
+import { Route as AuthenticatedLecturesLectureIdRouteImport } from './routes/_authenticated/lectures.$lectureId'
 import { Route as AuthenticatedBatchesBatchIdRouteImport } from './routes/_authenticated/batches.$batchId'
 
 const SignupRoute = SignupRouteImport.update({
@@ -88,6 +89,12 @@ const ApiPublicInitAdminRoute = ApiPublicInitAdminRouteImport.update({
   path: '/api/public/init-admin',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedLecturesLectureIdRoute =
+  AuthenticatedLecturesLectureIdRouteImport.update({
+    id: '/lectures/$lectureId',
+    path: '/lectures/$lectureId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedBatchesBatchIdRoute =
   AuthenticatedBatchesBatchIdRouteImport.update({
     id: '/$batchId',
@@ -108,6 +115,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof AuthenticatedProfileRoute
   '/tests': typeof AuthenticatedTestsRoute
   '/batches/$batchId': typeof AuthenticatedBatchesBatchIdRoute
+  '/lectures/$lectureId': typeof AuthenticatedLecturesLectureIdRoute
   '/api/public/init-admin': typeof ApiPublicInitAdminRoute
 }
 export interface FileRoutesByTo {
@@ -123,6 +131,7 @@ export interface FileRoutesByTo {
   '/profile': typeof AuthenticatedProfileRoute
   '/tests': typeof AuthenticatedTestsRoute
   '/batches/$batchId': typeof AuthenticatedBatchesBatchIdRoute
+  '/lectures/$lectureId': typeof AuthenticatedLecturesLectureIdRoute
   '/api/public/init-admin': typeof ApiPublicInitAdminRoute
 }
 export interface FileRoutesById {
@@ -140,6 +149,7 @@ export interface FileRoutesById {
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/tests': typeof AuthenticatedTestsRoute
   '/_authenticated/batches/$batchId': typeof AuthenticatedBatchesBatchIdRoute
+  '/_authenticated/lectures/$lectureId': typeof AuthenticatedLecturesLectureIdRoute
   '/api/public/init-admin': typeof ApiPublicInitAdminRoute
 }
 export interface FileRouteTypes {
@@ -157,6 +167,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/tests'
     | '/batches/$batchId'
+    | '/lectures/$lectureId'
     | '/api/public/init-admin'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -172,6 +183,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/tests'
     | '/batches/$batchId'
+    | '/lectures/$lectureId'
     | '/api/public/init-admin'
   id:
     | '__root__'
@@ -188,6 +200,7 @@ export interface FileRouteTypes {
     | '/_authenticated/profile'
     | '/_authenticated/tests'
     | '/_authenticated/batches/$batchId'
+    | '/_authenticated/lectures/$lectureId'
     | '/api/public/init-admin'
   fileRoutesById: FileRoutesById
 }
@@ -294,6 +307,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicInitAdminRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/lectures/$lectureId': {
+      id: '/_authenticated/lectures/$lectureId'
+      path: '/lectures/$lectureId'
+      fullPath: '/lectures/$lectureId'
+      preLoaderRoute: typeof AuthenticatedLecturesLectureIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/batches/$batchId': {
       id: '/_authenticated/batches/$batchId'
       path: '/$batchId'
@@ -322,6 +342,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedLiveRoute: typeof AuthenticatedLiveRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedTestsRoute: typeof AuthenticatedTestsRoute
+  AuthenticatedLecturesLectureIdRoute: typeof AuthenticatedLecturesLectureIdRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -331,6 +352,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedLiveRoute: AuthenticatedLiveRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedTestsRoute: AuthenticatedTestsRoute,
+  AuthenticatedLecturesLectureIdRoute: AuthenticatedLecturesLectureIdRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
