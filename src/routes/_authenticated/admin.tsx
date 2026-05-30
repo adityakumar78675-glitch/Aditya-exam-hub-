@@ -264,7 +264,7 @@ function LecturesAdmin() {
 
 function LectureDialog({ batchId, initial, onSaved, trigger }: any) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<any>({ title: "", description: "", video_url: "", thumbnail_url: "", duration_minutes: 0, order_index: 0, is_live: false, scheduled_at: "" });
+  const [form, setForm] = useState<any>({ title: "", description: "", video_url: "", thumbnail_url: "", duration_minutes: 0, order_index: 0, is_live: false, is_free: false, scheduled_at: "" });
   const [materials, setMaterials] = useState<any[]>([]);
   const [newMat, setNewMat] = useState({ title: "", file_url: "", file_type: "pdf" });
 
@@ -273,10 +273,11 @@ function LectureDialog({ batchId, initial, onSaved, trigger }: any) {
       setForm(initial ? {
         ...initial,
         scheduled_at: initial.scheduled_at ? new Date(initial.scheduled_at).toISOString().slice(0, 16) : "",
-      } : { title: "", description: "", video_url: "", thumbnail_url: "", duration_minutes: 0, order_index: 0, is_live: false, scheduled_at: "" });
+      } : { title: "", description: "", video_url: "", thumbnail_url: "", duration_minutes: 0, order_index: 0, is_live: false, is_free: false, scheduled_at: "" });
       setMaterials(initial?.materials ?? []);
     }
   }, [open, initial]);
+
 
   async function save() {
     if (!form.title) { toast.error("Title required"); return; }
