@@ -290,7 +290,9 @@ function LectureDialog({ batchId, initial, onSaved, trigger }: any) {
       duration_minutes: Number(form.duration_minutes) || null,
       order_index: Number(form.order_index) || 0,
       is_live: form.is_live,
+      is_free: !!form.is_free,
       scheduled_at: form.scheduled_at ? new Date(form.scheduled_at).toISOString() : null,
+
     };
     const res = initial
       ? await supabase.from("lectures").update(payload).eq("id", initial.id).select().single()
