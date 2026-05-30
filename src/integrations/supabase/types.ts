@@ -14,16 +14,237 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      batches: {
+        Row: {
+          class_level: string
+          created_at: string
+          description: string | null
+          discount_price: number | null
+          enrollment_open: boolean
+          id: string
+          mentors: string | null
+          price: number
+          subjects: string[]
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          class_level: string
+          created_at?: string
+          description?: string | null
+          discount_price?: number | null
+          enrollment_open?: boolean
+          id?: string
+          mentors?: string | null
+          price?: number
+          subjects?: string[]
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          class_level?: string
+          created_at?: string
+          description?: string | null
+          discount_price?: number | null
+          enrollment_open?: boolean
+          id?: string
+          mentors?: string | null
+          price?: number
+          subjects?: string[]
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      enrollments: {
+        Row: {
+          batch_id: string
+          enrolled_at: string
+          id: string
+          progress_percent: number
+          student_id: string
+        }
+        Insert: {
+          batch_id: string
+          enrolled_at?: string
+          id?: string
+          progress_percent?: number
+          student_id: string
+        }
+        Update: {
+          batch_id?: string
+          enrolled_at?: string
+          id?: string
+          progress_percent?: number
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enrollments_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lectures: {
+        Row: {
+          batch_id: string
+          created_at: string
+          description: string | null
+          duration_minutes: number | null
+          id: string
+          is_live: boolean
+          order_index: number
+          scheduled_at: string | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+          video_url: string | null
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_live?: boolean
+          order_index?: number
+          scheduled_at?: string | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          id?: string
+          is_live?: boolean
+          order_index?: number
+          scheduled_at?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lectures_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      materials: {
+        Row: {
+          created_at: string
+          file_type: string
+          file_url: string
+          id: string
+          lecture_id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          file_type?: string
+          file_url: string
+          id?: string
+          lecture_id: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          file_type?: string
+          file_url?: string
+          id?: string
+          lecture_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "materials_lecture_id_fkey"
+            columns: ["lecture_id"]
+            isOneToOne: false
+            referencedRelation: "lectures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          blocked: boolean
+          class_level: string | null
+          created_at: string
+          full_name: string
+          id: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          blocked?: boolean
+          class_level?: string | null
+          created_at?: string
+          full_name?: string
+          id: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          blocked?: boolean
+          class_level?: string | null
+          created_at?: string
+          full_name?: string
+          id?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "student"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +371,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "student"],
+    },
   },
 } as const
