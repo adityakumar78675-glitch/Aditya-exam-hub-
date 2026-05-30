@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,7 +12,8 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Pencil, Trash2, Plus, Users, BookOpen, Video, IndianRupee } from "lucide-react";
+import { Pencil, Trash2, Plus, Users, BookOpen, Video, IndianRupee, Play } from "lucide-react";
+
 
 export const Route = createFileRoute("/_authenticated/admin")({ component: AdminPage });
 
@@ -241,13 +242,20 @@ function LecturesAdmin() {
         {lectures.map((l: any) => (
           <div key={l.id} className="bg-card border border-border rounded-xl p-4 flex items-center gap-3">
             <div className="flex-1">
-              <p className="font-semibold">{l.title}</p>
+              <p className="font-semibold flex items-center gap-2">
+                {l.title}
+                {l.is_free && <span className="bg-accent/10 text-accent font-bold px-2 py-0.5 rounded uppercase text-[10px]">Free</span>}
+              </p>
               <p className="text-xs text-muted-foreground">{l.is_live ? "Live" : "Recorded"} • {l.duration_minutes ?? 0} min • {l.materials?.length ?? 0} materials</p>
             </div>
+            <Link to="/lectures/$lectureId" params={{ lectureId: l.id }}>
+              <Button size="sm" variant="outline"><Play className="size-4 mr-1" /> Preview</Button>
+            </Link>
             <LectureDialog batchId={batchId} initial={l} onSaved={() => qc.invalidateQueries({ queryKey: ["admin-lectures"] })} trigger={<Button size="sm" variant="ghost"><Pencil className="size-4" /></Button>} />
             <Button size="sm" variant="ghost" onClick={() => { if (confirm("Delete?")) del.mutate(l.id); }}><Trash2 className="size-4 text-destructive" /></Button>
           </div>
         ))}
+
         {batchId && lectures.length === 0 && <p className="text-muted-foreground text-sm">No lectures yet.</p>}
       </div>
     </div>
@@ -256,7 +264,7 @@ function LecturesAdmin() {
 
 function LectureDialog({ batchId, initial, onSaved, trigger }: any) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<any>({ title: "", description: "", video_url: "", thumbnail_url: "", duration_minutes: 0, order_index: 0, is_live: false, scheduled_at: "" });
+  const [form, setForm] = useState<any>({ title: "", description: "", video_url: "", thumbnail_url: "", duration_minutes: 0, order_index: 0, is_live: false, is_free: false, scheduled_at: "" });
   const [materials, setMaterials] = useState<any[]>([]);
   const [newMat, setNewMat] = useState({ title: "", file_url: "", file_type: "pdf" });
 
@@ -265,10 +273,11 @@ function LectureDialog({ batchId, initial, onSaved, trigger }: any) {
       setForm(initial ? {
         ...initial,
         scheduled_at: initial.scheduled_at ? new Date(initial.scheduled_at).toISOString().slice(0, 16) : "",
-      } : { title: "", description: "", video_url: "", thumbnail_url: "", duration_minutes: 0, order_index: 0, is_live: false, scheduled_at: "" });
+      } : { title: "", description: "", video_url: "", thumbnail_url: "", duration_minutes: 0, order_index: 0, is_live: false, is_free: false, scheduled_at: "" });
       setMaterials(initial?.materials ?? []);
     }
   }, [open, initial]);
+
 
   async function save() {
     if (!form.title) { toast.error("Title required"); return; }
@@ -281,7 +290,9 @@ function LectureDialog({ batchId, initial, onSaved, trigger }: any) {
       duration_minutes: Number(form.duration_minutes) || null,
       order_index: Number(form.order_index) || 0,
       is_live: form.is_live,
+      is_free: !!form.is_free,
       scheduled_at: form.scheduled_at ? new Date(form.scheduled_at).toISOString() : null,
+
     };
     const res = initial
       ? await supabase.from("lectures").update(payload).eq("id", initial.id).select().single()
@@ -310,15 +321,19 @@ function LectureDialog({ batchId, initial, onSaved, trigger }: any) {
         <div className="space-y-3">
           <div><Label>Title</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
           <div><Label>Description</Label><Textarea value={form.description ?? ""} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
-          <div><Label>Video URL (YouTube/MP4)</Label><Input value={form.video_url ?? ""} onChange={(e) => setForm({ ...form, video_url: e.target.value })} /></div>
+          <div><Label>Video URL (MP4, YouTube, Vimeo, Google Drive)</Label><Input value={form.video_url ?? ""} onChange={(e) => setForm({ ...form, video_url: e.target.value })} placeholder="https://..." /></div>
           <div><Label>Thumbnail URL</Label><Input value={form.thumbnail_url ?? ""} onChange={(e) => setForm({ ...form, thumbnail_url: e.target.value })} /></div>
           <div className="grid grid-cols-2 gap-3">
             <div><Label>Duration (min)</Label><Input type="number" value={form.duration_minutes ?? 0} onChange={(e) => setForm({ ...form, duration_minutes: e.target.value })} /></div>
             <div><Label>Order</Label><Input type="number" value={form.order_index ?? 0} onChange={(e) => setForm({ ...form, order_index: e.target.value })} /></div>
           </div>
+          <div className="flex items-center justify-between"><Label>Free preview lecture</Label>
+            <Switch checked={!!form.is_free} onCheckedChange={(v) => setForm({ ...form, is_free: v })} />
+          </div>
           <div className="flex items-center justify-between"><Label>Live class</Label>
             <Switch checked={form.is_live} onCheckedChange={(v) => setForm({ ...form, is_live: v })} />
           </div>
+
           {form.is_live && (
             <div><Label>Scheduled at</Label><Input type="datetime-local" value={form.scheduled_at} onChange={(e) => setForm({ ...form, scheduled_at: e.target.value })} /></div>
           )}

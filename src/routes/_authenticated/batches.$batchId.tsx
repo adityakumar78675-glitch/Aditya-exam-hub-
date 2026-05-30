@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, FileText, PlayCircle, Radio } from "lucide-react";
+import { ArrowLeft, PlayCircle, Radio } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/batches/$batchId")({ component: BatchDetail });
 
@@ -50,33 +50,29 @@ function BatchDetail() {
           <h3 className="text-xl font-bold mb-3">Lectures ({lectures.length})</h3>
           <div className="space-y-2">
             {lectures.map((l: any) => (
-              <div key={l.id} className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
+              <Link
+                key={l.id}
+                to="/lectures/$lectureId"
+                params={{ lectureId: l.id }}
+                className="bg-card border border-border rounded-xl p-4 flex items-center gap-4 hover:border-primary transition-colors"
+              >
                 {l.is_live ? <Radio className="size-5 text-destructive" /> : <PlayCircle className="size-5 text-primary" />}
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-semibold truncate">{l.title}</h4>
+                  <h4 className="font-semibold truncate flex items-center gap-2">
+                    {l.title}
+                    {l.is_free && <span className="bg-accent/10 text-accent font-bold px-2 py-0.5 rounded uppercase text-[10px]">Free</span>}
+                  </h4>
                   <p className="text-xs text-muted-foreground">
                     {l.is_live ? `Live • ${l.scheduled_at ? new Date(l.scheduled_at).toLocaleString() : "TBD"}` : `${l.duration_minutes ?? 0} min`}
+                    {l.materials?.length > 0 && ` • ${l.materials.length} material${l.materials.length > 1 ? "s" : ""}`}
                   </p>
-                  {l.materials && l.materials.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {l.materials.map((m: any) => (
-                        <a key={m.id} href={m.file_url} target="_blank" rel="noreferrer"
-                          className="text-xs inline-flex items-center gap-1 bg-muted px-2 py-1 rounded text-foreground hover:bg-muted/70">
-                          <FileText className="size-3" /> {m.title}
-                        </a>
-                      ))}
-                    </div>
-                  )}
                 </div>
-                {l.video_url && (
-                  <a href={l.video_url} target="_blank" rel="noreferrer">
-                    <Button size="sm">Watch</Button>
-                  </a>
-                )}
-              </div>
+                <Button size="sm">Watch</Button>
+              </Link>
             ))}
             {lectures.length === 0 && <p className="text-sm text-muted-foreground">No lectures uploaded yet.</p>}
           </div>
+
         </div>
       </div>
     </div>
