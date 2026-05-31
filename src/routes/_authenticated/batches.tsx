@@ -72,9 +72,9 @@ function BatchesPage() {
                     )}
                   </div>
                   <div className="flex gap-2">
-                    <Link to="/batches/$batchId" params={{ batchId: b.id }} className="flex-1">
-                      <Button variant="outline" className="w-full">View</Button>
-                    </Link>
+                    <Button asChild variant="outline" className="flex-1">
+                      <Link to="/batches/$batchId" params={{ batchId: b.id }}>View</Link>
+                    </Button>
                     {enrolled ? (
                       <Button disabled className="flex-1">Enrolled</Button>
                     ) : (

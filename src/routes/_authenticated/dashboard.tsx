@@ -51,7 +51,7 @@ function Dashboard() {
               <BookOpen className="size-10 mx-auto text-muted-foreground mb-3" />
               <h3 className="font-bold text-lg">No enrollments yet</h3>
               <p className="text-sm text-muted-foreground mt-1">Explore batches and enroll in one to start learning.</p>
-              <Link to="/batches"><Button className="mt-4">Browse Batches</Button></Link>
+              <Button asChild className="mt-4"><Link to="/batches">Browse Batches</Link></Button>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -83,9 +83,9 @@ function Dashboard() {
                         <div className="h-full bg-primary rounded-full" style={{ width: `${e.progress_percent}%` }} />
                       </div>
                     </div>
-                    <Link to="/batches/$batchId" params={{ batchId: e.batch.id }}>
-                      <Button className="w-full">Continue Learning</Button>
-                    </Link>
+                    <Button asChild className="w-full">
+                      <Link to="/batches/$batchId" params={{ batchId: e.batch.id }}>Continue Learning</Link>
+                    </Button>
                   </div>
                 </div>
               ))}
