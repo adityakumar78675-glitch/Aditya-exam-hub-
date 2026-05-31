@@ -83,9 +83,9 @@ function Dashboard() {
                         <div className="h-full bg-primary rounded-full" style={{ width: `${e.progress_percent}%` }} />
                       </div>
                     </div>
-                    <Link to="/batches/$batchId" params={{ batchId: e.batch.id }}>
-                      <Button className="w-full">Continue Learning</Button>
-                    </Link>
+                    <Button asChild className="w-full">
+                      <Link to="/batches/$batchId" params={{ batchId: e.batch.id }}>Continue Learning</Link>
+                    </Button>
                   </div>
                 </div>
               ))}
