@@ -73,24 +73,26 @@ function BatchesPage() {
                     )}
                   </div>
                   <div className="flex gap-2">
-                    <Link
-                      to="/batches/$batchId"
-                      params={{ batchId: b.id }}
+                    <Button
+                      variant="outline"
+                      className="flex-1"
                       onClick={() => {
                         console.log("[Batches] View clicked", { batchId: b.id, enrolled });
+                        navigate({ to: "/batches/$batchId", params: { batchId: b.id } });
                       }}
-                      className="flex-1 inline-flex items-center justify-center rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 text-sm font-medium transition-colors"
                     >
                       View
-                    </Link>
+                    </Button>
                     {enrolled ? (
-                      <Link
-                        to="/batches/$batchId"
-                        params={{ batchId: b.id }}
-                        className="flex-1 inline-flex items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 text-sm font-medium transition-colors"
+                      <Button
+                        className="flex-1"
+                        onClick={() => {
+                          console.log("[Batches] Open clicked", { batchId: b.id });
+                          navigate({ to: "/batches/$batchId", params: { batchId: b.id } });
+                        }}
                       >
                         Open
-                      </Link>
+                      </Button>
                     ) : (
                       <Button onClick={() => enroll.mutate(b.id)} disabled={!b.enrollment_open || enroll.isPending} className="flex-1">
                         {b.enrollment_open ? "Enroll" : "Closed"}
