@@ -9,6 +9,7 @@ export const Route = createFileRoute("/_authenticated/batches")({ component: Bat
 
 function BatchesPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const qc = useQueryClient();
 
   const { data: batches = [] } = useQuery({
