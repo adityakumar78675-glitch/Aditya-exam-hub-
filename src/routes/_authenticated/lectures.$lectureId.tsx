@@ -91,7 +91,14 @@ function LecturePage() {
   };
 
   if (isLoading) return <div className="p-8 text-muted-foreground">Loading lecture...</div>;
-  if (!lecture) return <div className="p-8 text-muted-foreground">Lecture not found.</div>;
+  if (!lecture) return (
+    <div className="p-8 max-w-xl mx-auto text-center space-y-3">
+      <Lock className="size-10 mx-auto text-muted-foreground" />
+      <h2 className="text-xl font-bold">Lecture unavailable</h2>
+      <p className="text-sm text-muted-foreground">You may need to enroll in the batch to access this lecture.</p>
+      <Button onClick={() => navigate({ to: "/batches" })}>Browse batches</Button>
+    </div>
+  );
 
   const batchPrice = Number(lecture.batch?.discount_price ?? lecture.batch?.price ?? 0);
   const isFreeBatch = batchPrice === 0;
