@@ -127,7 +127,14 @@ function BatchDetail() {
         </div>
 
         <div>
-          <h3 className="text-xl font-bold mb-3">Lectures ({lectures.length})</h3>
+          <h3 className="text-xl font-bold mb-3">Lectures{lectures.length ? ` (${lectures.length})` : ""}</h3>
+          {!hasAccess && !isAdmin && (
+            <div className="bg-muted/30 border border-dashed border-border rounded-xl p-6 text-center mb-3">
+              <Lock className="size-8 mx-auto mb-2 text-muted-foreground" />
+              <p className="font-semibold">Please purchase this batch to continue.</p>
+              <p className="text-sm text-muted-foreground mt-1">Free lectures (if any) are listed below.</p>
+            </div>
+          )}
           {lecturesLoading ? (
             <div className="space-y-2">
               <Skeleton className="h-16 w-full" />
