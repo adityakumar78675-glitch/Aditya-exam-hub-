@@ -50,49 +50,68 @@ function ErrorState({ title, message, onRetry }: { title: string; message: strin
 function BatchDetail() {
   const { batchId } = Route.useParams();
   const { user, role } = useAuth();
+  const navigate = useNavigate();
   const isAdmin = role === "admin";
   const qc = useQueryClient();
+  const [selectedSubject, setSelectedSubject] = useState("");
+  const [selectedChapter, setSelectedChapter] = useState("");
 
-  const { data: batch, isLoading: batchLoading } = useQuery({
+  useEffect(() => {
+    console.log("Batch ID:", batchId);
+  }, [batchId]);
+
+  const { data: batch, isLoading: batchLoading, isError: batchError, error: batchErrorInfo, refetch: refetchBatch } = useQuery({
     queryKey: ["batch", batchId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("batches").select("*").eq("id", batchId).maybeSingle();
+      const { data, error } = await withTimeout(
+        supabase.from("batches").select("*").eq("id", batchId).maybeSingle(),
+        "Batch loading"
+      );
       console.log("[BatchDetail] batchId:", batchId, "data:", data, "error:", error);
+      if (error) throw error;
       return data;
     },
+    retry: 1,
   });
 
-  const { data: enrollment, isLoading: enrollLoading } = useQuery({
+  const { data: enrollment, isLoading: enrollLoading, isError: enrollError, refetch: refetchEnrollment } = useQuery({
     queryKey: ["enrollment-check", batchId, user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await withTimeout(supabase
         .from("enrollments")
         .select("id")
         .eq("student_id", user!.id)
         .eq("batch_id", batchId)
-        .maybeSingle();
+        .maybeSingle(), "Enrollment check");
       console.log("[BatchDetail] enrollment:", data);
+      if (error) throw error;
       return data;
     },
+    retry: 1,
   });
 
   const batchPrice = Number(batch?.discount_price ?? batch?.price ?? 0);
   const isFreeBatch = batchPrice === 0;
   const hasAccess = isAdmin || isFreeBatch || !!enrollment;
+  console.log("User:", user?.id);
+  console.log("Batch:", batchId);
+  console.log("Purchased:", hasAccess);
   console.log("[BatchDetail] userId:", user?.id, "isAdmin:", isAdmin, "hasAccess:", hasAccess);
 
-  const { data: lectures = [], isLoading: lecturesLoading } = useQuery({
+  const { data: lectures = [], isLoading: lecturesLoading, isError: lecturesError, error: lecturesErrorInfo, refetch: refetchLectures } = useQuery({
     queryKey: ["lectures", batchId],
     enabled: !!batch,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await withTimeout(supabase
         .from("lectures")
         .select("*, materials(*)")
         .eq("batch_id", batchId)
-        .order("order_index");
+        .order("order_index"), "Lecture loading");
+      if (error) throw error;
       return data ?? [];
     },
+    retry: 1,
   });
 
   const enroll = useMutation({
