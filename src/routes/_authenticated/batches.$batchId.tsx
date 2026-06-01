@@ -245,8 +245,12 @@ function BatchDetail() {
           )}
         </div>
 
-        <div>
-          <h3 className="text-xl font-bold mb-3">Lectures{lectures.length ? ` (${lectures.length})` : ""}</h3>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <h3 className="text-xl font-bold">Subjects, Chapters & Lectures{lectures.length ? ` (${lectures.length})` : ""}</h3>
+            {lecturesError && <Button variant="outline" size="sm" onClick={() => refetchLectures()}><RefreshCcw className="size-4 mr-1" /> Retry</Button>}
+          </div>
+
           {!hasAccess && !isAdmin && (
             <div className="bg-muted/30 border border-dashed border-border rounded-xl p-6 text-center mb-3">
               <Lock className="size-8 mx-auto mb-2 text-muted-foreground" />
@@ -254,52 +258,104 @@ function BatchDetail() {
               <p className="text-sm text-muted-foreground mt-1">Free lectures (if any) are listed below.</p>
             </div>
           )}
+
           {lecturesLoading ? (
             <div className="space-y-2">
+              <Skeleton className="h-12 w-full" />
               <Skeleton className="h-16 w-full" />
               <Skeleton className="h-16 w-full" />
             </div>
+          ) : lecturesError ? (
+            <div className="bg-card border border-border rounded-xl p-5 text-center space-y-2">
+              <p className="font-semibold">Lectures could not load</p>
+              <p className="text-sm text-muted-foreground">{(lecturesErrorInfo as Error | undefined)?.message ?? "Please retry."}</p>
+            </div>
           ) : (
-            <div className="space-y-2">
-              {lectures.map((l: any) => {
-                const lectureUnlocked = hasAccess || l.is_free;
-                const inner = (
-                  <>
-                    {l.is_live ? <Radio className="size-5 text-destructive shrink-0" /> :
-                      lectureUnlocked ? <PlayCircle className="size-5 text-primary shrink-0" /> :
-                      <Lock className="size-5 text-muted-foreground shrink-0" />}
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold truncate flex items-center gap-2">
-                        {l.title}
-                        {l.is_free && <span className="bg-accent/10 text-accent font-bold px-2 py-0.5 rounded uppercase text-[10px]">Free</span>}
-                      </h4>
-                      <p className="text-xs text-muted-foreground">
-                        {l.is_live ? `Live • ${l.scheduled_at ? new Date(l.scheduled_at).toLocaleString() : "TBD"}` : `${l.duration_minutes ?? 0} min`}
-                        {l.materials?.length > 0 && ` • ${l.materials.length} material${l.materials.length > 1 ? "s" : ""}`}
-                      </p>
+            <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-4">
+              <div className="bg-card border border-border rounded-xl p-3 space-y-2 h-fit">
+                {subjects.map((subject) => (
+                  <button
+                    key={subject.name}
+                    type="button"
+                    onClick={() => setSelectedSubject(subject.name)}
+                    className={`w-full text-left rounded-lg px-3 py-2.5 text-sm font-semibold flex items-center justify-between gap-2 transition-colors ${
+                      selectedSubject === subject.name ? "bg-primary text-primary-foreground" : "hover:bg-muted text-foreground"
+                    }`}
+                  >
+                    <span className="truncate flex items-center gap-2"><BookOpen className="size-4 shrink-0" /> {subject.name}</span>
+                    <span className="text-xs opacity-80">{subject.chapters.reduce((total, chapter) => total + chapter.lectures.length, 0)}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-3 min-w-0">
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {(activeSubject?.chapters ?? []).map((chapter) => (
+                    <button
+                      key={chapter.name}
+                      type="button"
+                      onClick={() => setSelectedChapter(chapter.name)}
+                      className={`shrink-0 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
+                        selectedChapter === chapter.name ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted"
+                      }`}
+                    >
+                      {chapter.name} <span className="opacity-75">({chapter.lectures.length})</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="space-y-2">
+                  {(activeChapter?.lectures ?? []).map((l: any) => {
+                    const lectureUnlocked = hasAccess || l.is_free;
+                    return (
+                      <div
+                        key={l.id}
+                        className={`bg-card border border-border rounded-xl p-4 flex items-start gap-4 ${lectureUnlocked ? "hover:border-primary transition-colors" : "opacity-60"}`}
+                      >
+                        {l.is_live ? <Radio className="size-5 text-destructive shrink-0 mt-0.5" /> :
+                          lectureUnlocked ? <PlayCircle className="size-5 text-primary shrink-0 mt-0.5" /> :
+                          <Lock className="size-5 text-muted-foreground shrink-0 mt-0.5" />}
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold flex items-center gap-2 flex-wrap">
+                            <span className="truncate">{l.title}</span>
+                            {l.is_free && <span className="bg-accent/10 text-accent font-bold px-2 py-0.5 rounded uppercase text-[10px]">Free</span>}
+                          </h4>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {l.is_live ? `Live • ${l.scheduled_at ? new Date(l.scheduled_at).toLocaleString() : "TBD"}` : `${l.duration_minutes ?? 0} min`}
+                            {l.materials?.length > 0 && ` • ${l.materials.length} PDF/note${l.materials.length > 1 ? "s" : ""}`}
+                          </p>
+                          {l.materials?.length > 0 && lectureUnlocked && (
+                            <div className="flex flex-wrap gap-2 mt-3">
+                              {l.materials.map((material: any) => (
+                                <a key={material.id} href={material.file_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                                  <FileText className="size-3" /> {material.title}
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant={lectureUnlocked ? "default" : "outline"}
+                          disabled={!lectureUnlocked}
+                          onClick={() => {
+                            console.log("[BatchDetail] Opening lecture", { lectureId: l.id, batchId });
+                            navigate({ to: "/lectures/$lectureId", params: { lectureId: l.id } });
+                          }}
+                          className="shrink-0"
+                        >
+                          {lectureUnlocked ? <>Watch <ChevronRight className="size-4 ml-1" /></> : "Locked"}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                  {(activeChapter?.lectures.length ?? 0) === 0 && (
+                    <div className="bg-card border border-border rounded-xl p-6 text-center text-sm text-muted-foreground">
+                      No lectures uploaded in this chapter yet.
                     </div>
-                    <span className="text-xs font-semibold text-primary shrink-0">{lectureUnlocked ? "Watch →" : "Locked"}</span>
-                  </>
-                );
-                return lectureUnlocked ? (
-                  <Link
-                    key={l.id}
-                    to="/lectures/$lectureId"
-                    params={{ lectureId: l.id }}
-                    className="bg-card border border-border rounded-xl p-4 flex items-center gap-4 hover:border-primary transition-colors"
-                  >
-                    {inner}
-                  </Link>
-                ) : (
-                  <div
-                    key={l.id}
-                    className="bg-card border border-border rounded-xl p-4 flex items-center gap-4 opacity-60 cursor-not-allowed"
-                  >
-                    {inner}
-                  </div>
-                );
-              })}
-              {lectures.length === 0 && <p className="text-sm text-muted-foreground">No lectures uploaded yet.</p>}
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>
