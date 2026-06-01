@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -10,6 +10,7 @@ export const Route = createFileRoute("/_authenticated/batches")({ component: Bat
 function BatchesPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const qc = useQueryClient();
 
   const { data: batches = [] } = useQuery({
@@ -41,6 +42,8 @@ function BatchesPage() {
     },
     onError: (e: any) => toast.error(e.message),
   });
+
+  if (pathname !== "/batches") return <Outlet />;
 
   return (
     <div className="flex flex-col">

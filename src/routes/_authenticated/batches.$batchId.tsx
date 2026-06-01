@@ -1,13 +1,51 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, PlayCircle, Radio, Lock } from "lucide-react";
+import { ArrowLeft, BookOpen, ChevronRight, FileText, PlayCircle, Radio, Lock, RefreshCcw } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/batches/$batchId")({ component: BatchDetail });
+
+const LOAD_TIMEOUT_MS = 5000;
+
+function withTimeout<T>(task: PromiseLike<T>, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    Promise.resolve(task),
+    new Promise<T>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label} took more than 5 seconds. Please retry.`)), LOAD_TIMEOUT_MS);
+    }),
+  ]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
+function getLectureSubject(lecture: any, fallback: string) {
+  return lecture.subject || lecture.subject_name || fallback || "All Lectures";
+}
+
+function getLectureChapter(lecture: any) {
+  return lecture.chapter_title || lecture.chapter || "Lectures";
+}
+
+function ErrorState({ title, message, onRetry }: { title: string; message: string; onRetry: () => void }) {
+  return (
+    <div className="p-4 md:p-8 max-w-5xl mx-auto w-full">
+      <div className="bg-card border border-border rounded-xl p-6 text-center space-y-3">
+        <h2 className="text-xl font-bold">{title}</h2>
+        <p className="text-sm text-muted-foreground">{message}</p>
+        <div className="flex justify-center gap-2 flex-wrap">
+          <Button variant="outline" onClick={onRetry}><RefreshCcw className="size-4 mr-1" /> Retry</Button>
+          <Button asChild><Link to="/batches">Browse batches</Link></Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function BatchDetail() {
   const { batchId } = Route.useParams();
