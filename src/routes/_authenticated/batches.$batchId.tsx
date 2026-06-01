@@ -128,6 +128,58 @@ function BatchDetail() {
     onError: (e: any) => toast.error(e.message),
   });
 
+  const subjects = useMemo(() => {
+    const names = new Set<string>();
+    (batch?.subjects ?? []).forEach((subject: string) => {
+      if (subject?.trim()) names.add(subject.trim());
+    });
+    lectures.forEach((lecture: any) => names.add(getLectureSubject(lecture, batch?.subjects?.[0] ?? "All Lectures")));
+    if (names.size === 0) names.add("All Lectures");
+
+    return Array.from(names).map((subjectName) => {
+      const subjectLectures = lectures.filter((lecture: any) => getLectureSubject(lecture, subjectName) === subjectName);
+      const chapterNames = new Set<string>();
+      subjectLectures.forEach((lecture: any) => chapterNames.add(getLectureChapter(lecture)));
+      if (chapterNames.size === 0) chapterNames.add("Lectures");
+
+      return {
+        name: subjectName,
+        chapters: Array.from(chapterNames).map((chapterName) => ({
+          name: chapterName,
+          lectures: subjectLectures.filter((lecture: any) => getLectureChapter(lecture) === chapterName),
+        })),
+      };
+    });
+  }, [batch, lectures]);
+
+  useEffect(() => {
+    if (!selectedSubject && subjects[0]) setSelectedSubject(subjects[0].name);
+    if (selectedSubject && !subjects.some((subject) => subject.name === selectedSubject)) {
+      setSelectedSubject(subjects[0]?.name ?? "");
+    }
+  }, [selectedSubject, subjects]);
+
+  const activeSubject = subjects.find((subject) => subject.name === selectedSubject) ?? subjects[0];
+
+  useEffect(() => {
+    if (!activeSubject) return;
+    if (!selectedChapter || !activeSubject.chapters.some((chapter) => chapter.name === selectedChapter)) {
+      setSelectedChapter(activeSubject.chapters[0]?.name ?? "");
+    }
+  }, [activeSubject, selectedChapter]);
+
+  const activeChapter = activeSubject?.chapters.find((chapter) => chapter.name === selectedChapter) ?? activeSubject?.chapters[0];
+
+  useEffect(() => {
+    if (batch && hasAccess) console.log("Opening Batch");
+  }, [batch, hasAccess]);
+
+  const retryAll = () => {
+    refetchBatch();
+    refetchEnrollment();
+    refetchLectures();
+  };
+
   if (batchLoading || enrollLoading) {
     return (
       <div className="p-8 space-y-4 max-w-5xl mx-auto w-full">
@@ -135,6 +187,16 @@ function BatchDetail() {
         <Skeleton className="h-40 w-full" />
         <Skeleton className="h-16 w-full" />
       </div>
+    );
+  }
+
+  if (batchError || enrollError) {
+    return (
+      <ErrorState
+        title="Batch could not load"
+        message={(batchErrorInfo as Error | undefined)?.message ?? "Access verification failed. Please retry."}
+        onRetry={retryAll}
+      />
     );
   }
 
