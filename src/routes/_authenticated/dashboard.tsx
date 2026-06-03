@@ -42,6 +42,7 @@ function Dashboard() {
       </header>
 
       <div className="p-8 max-w-6xl mx-auto w-full space-y-10">
+        <HeroBanner />
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold tracking-tight">My Batches</h2>
