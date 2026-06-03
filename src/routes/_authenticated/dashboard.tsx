@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { BookOpen, Radio } from "lucide-react";
+import { HeroBanner } from "@/components/HeroBanner";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: Dashboard });
 
