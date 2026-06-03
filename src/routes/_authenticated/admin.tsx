@@ -37,11 +37,13 @@ function AdminPage() {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="batches">Batches</TabsTrigger>
             <TabsTrigger value="lectures">Lectures</TabsTrigger>
+            <TabsTrigger value="live">Live</TabsTrigger>
             <TabsTrigger value="students">Students</TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="mt-6"><Overview /></TabsContent>
           <TabsContent value="batches" className="mt-6"><BatchesAdmin /></TabsContent>
           <TabsContent value="lectures" className="mt-6"><LecturesAdmin /></TabsContent>
+          <TabsContent value="live" className="mt-6"><LiveAdmin /></TabsContent>
           <TabsContent value="students" className="mt-6"><StudentsAdmin /></TabsContent>
         </Tabs>
       </div>
@@ -403,5 +405,146 @@ function StudentsAdmin() {
         </tbody>
       </table>
     </div>
+  );
+}
+
+function LiveAdmin() {
+  const qc = useQueryClient();
+  const { data: batches = [] } = useQuery({
+    queryKey: ["admin-batches-min-live"],
+    queryFn: async () => (await supabase.from("batches").select("id, title").order("created_at", { ascending: false })).data ?? [],
+  });
+  const { data: items = [] } = useQuery({
+    queryKey: ["admin-live-classes"],
+    queryFn: async () => (await supabase.from("live_classes").select("*").order("created_at", { ascending: false })).data ?? [],
+  });
+
+  useEffect(() => {
+    const ch = supabase.channel("admin-live-classes-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "live_classes" },
+        () => qc.invalidateQueries({ queryKey: ["admin-live-classes"] }))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [qc]);
+
+  const setStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const patch: any = { status };
+      if (status === "live") patch.started_at = new Date().toISOString();
+      if (status === "ended") patch.ended_at = new Date().toISOString();
+      const { error } = await supabase.from("live_classes").update(patch).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Updated"); qc.invalidateQueries({ queryKey: ["admin-live-classes"] }); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const del = useMutation({
+    mutationFn: async (id: string) => { const { error } = await supabase.from("live_classes").delete().eq("id", id); if (error) throw error; },
+    onSuccess: () => { toast.success("Deleted"); qc.invalidateQueries({ queryKey: ["admin-live-classes"] }); },
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <LiveClassDialog batches={batches} onSaved={() => qc.invalidateQueries({ queryKey: ["admin-live-classes"] })} />
+      </div>
+      <div className="space-y-2">
+        {items.map((l: any) => {
+          const batch = batches.find((b: any) => b.id === l.batch_id);
+          return (
+            <div key={l.id} className="bg-card border border-border rounded-xl p-4 flex items-center gap-3 flex-wrap">
+              <div className="flex-1 min-w-[180px]">
+                <p className="font-semibold flex items-center gap-2">
+                  {l.title}
+                  <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${l.status === "live" ? "bg-destructive/10 text-destructive" : l.status === "ended" ? "bg-muted text-muted-foreground" : "bg-accent/10 text-accent"}`}>{l.status}</span>
+                </p>
+                <p className="text-xs text-muted-foreground">{batch?.title ?? "—"} • {l.teacher ?? "—"}{l.subject ? ` • ${l.subject}` : ""}</p>
+                {l.scheduled_at && <p className="text-xs text-muted-foreground">Scheduled: {new Date(l.scheduled_at).toLocaleString()}</p>}
+              </div>
+              {l.status !== "live" && <Button size="sm" onClick={() => setStatus.mutate({ id: l.id, status: "live" })}>Start Live</Button>}
+              {l.status === "live" && <Button size="sm" variant="outline" onClick={() => setStatus.mutate({ id: l.id, status: "ended" })}>End</Button>}
+              <LiveClassDialog batches={batches} initial={l} onSaved={() => qc.invalidateQueries({ queryKey: ["admin-live-classes"] })} trigger={<Button size="sm" variant="ghost"><Pencil className="size-4" /></Button>} />
+              <Button size="sm" variant="ghost" onClick={() => { if (confirm("Delete?")) del.mutate(l.id); }}><Trash2 className="size-4 text-destructive" /></Button>
+            </div>
+          );
+        })}
+        {items.length === 0 && <p className="text-muted-foreground text-sm">No live classes yet.</p>}
+      </div>
+    </div>
+  );
+}
+
+function LiveClassDialog({ batches, initial, onSaved, trigger }: any) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState<any>({ batch_id: "", title: "", teacher: "", subject: "", thumbnail_url: "", stream_url: "", status: "scheduled", scheduled_at: "" });
+
+  useEffect(() => {
+    if (open) {
+      setForm(initial ? {
+        ...initial,
+        scheduled_at: initial.scheduled_at ? new Date(initial.scheduled_at).toISOString().slice(0, 16) : "",
+      } : { batch_id: batches?.[0]?.id ?? "", title: "", teacher: "", subject: "", thumbnail_url: "", stream_url: "", status: "scheduled", scheduled_at: "" });
+    }
+  }, [open, initial, batches]);
+
+  async function save() {
+    if (!form.title || !form.batch_id) { toast.error("Title and batch required"); return; }
+    const payload = {
+      batch_id: form.batch_id,
+      title: form.title,
+      teacher: form.teacher || null,
+      subject: form.subject || null,
+      thumbnail_url: form.thumbnail_url || null,
+      stream_url: form.stream_url || null,
+      status: form.status,
+      scheduled_at: form.scheduled_at ? new Date(form.scheduled_at).toISOString() : null,
+    };
+    const q = initial
+      ? supabase.from("live_classes").update(payload).eq("id", initial.id)
+      : supabase.from("live_classes").insert(payload);
+    const { error } = await q;
+    if (error) { toast.error(error.message); return; }
+    toast.success("Saved");
+    setOpen(false);
+    onSaved?.();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{trigger ?? <Button><Plus className="size-4 mr-1" /> New Live Class</Button>}</DialogTrigger>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>{initial ? "Edit live class" : "New live class"}</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div><Label>Batch</Label>
+            <Select value={form.batch_id} onValueChange={(v) => setForm({ ...form, batch_id: v })}>
+              <SelectTrigger><SelectValue placeholder="Select batch" /></SelectTrigger>
+              <SelectContent>{batches.map((b: any) => <SelectItem key={b.id} value={b.id}>{b.title}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          <div><Label>Title</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Teacher</Label><Input value={form.teacher ?? ""} onChange={(e) => setForm({ ...form, teacher: e.target.value })} /></div>
+            <div><Label>Subject</Label><Input value={form.subject ?? ""} onChange={(e) => setForm({ ...form, subject: e.target.value })} /></div>
+          </div>
+          <div><Label>Thumbnail URL</Label><Input value={form.thumbnail_url ?? ""} onChange={(e) => setForm({ ...form, thumbnail_url: e.target.value })} /></div>
+          <div><Label>Stream URL (YouTube Live, MP4, etc.)</Label><Input value={form.stream_url ?? ""} onChange={(e) => setForm({ ...form, stream_url: e.target.value })} /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Status</Label>
+              <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="scheduled">Scheduled</SelectItem>
+                  <SelectItem value="live">Live</SelectItem>
+                  <SelectItem value="ended">Ended</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div><Label>Scheduled at</Label><Input type="datetime-local" value={form.scheduled_at} onChange={(e) => setForm({ ...form, scheduled_at: e.target.value })} /></div>
+          </div>
+        </div>
+        <DialogFooter><Button onClick={save}>Save</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
