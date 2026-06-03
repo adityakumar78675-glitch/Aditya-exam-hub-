@@ -17,10 +17,11 @@ type LiveClass = {
   teacher: string | null;
   subject: string | null;
   thumbnail_url: string | null;
-  stream_url: string | null;
   status: "scheduled" | "live" | "ended";
   scheduled_at: string | null;
 };
+
+const LIVE_COLS = "id, batch_id, title, teacher, subject, thumbnail_url, status, scheduled_at";
 
 function LivePage() {
   const qc = useQueryClient();
@@ -30,7 +31,7 @@ function LivePage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("live_classes")
-        .select("*")
+        .select(LIVE_COLS)
         .in("status", ["scheduled", "live"])
         .order("status", { ascending: true })
         .order("scheduled_at", { ascending: true });
@@ -99,13 +100,23 @@ function LivePage() {
 }
 
 function LiveCard({ item }: { item: LiveClass }) {
-  const src = parseVideoUrl(item.stream_url);
+  // stream_url is fetched server-side via RPC, which enforces that the class
+  // is actually live AND the user is enrolled / it's a free batch / admin.
+  const { data: streamUrl } = useQuery({
+    queryKey: ["live-stream-url", item.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_live_stream_url", { _class_id: item.id });
+      if (error) throw error;
+      return (data as string | null) ?? null;
+    },
+  });
+  const src = parseVideoUrl(streamUrl);
   return (
     <div className="bg-card border border-border rounded-2xl overflow-hidden">
       <div className="aspect-video bg-black relative">
-        {item.stream_url ? (
+        {streamUrl ? (
           src.kind === "file" ? (
-            <VideoPlayer url={item.stream_url} poster={item.thumbnail_url} />
+            <VideoPlayer url={streamUrl} poster={item.thumbnail_url} />
           ) : item.thumbnail_url ? (
             <img src={item.thumbnail_url} alt={item.title} className="w-full h-full object-cover" />
           ) : (
@@ -114,7 +125,7 @@ function LiveCard({ item }: { item: LiveClass }) {
             </div>
           )
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-muted-foreground">No stream URL</div>
+          <div className="w-full h-full flex items-center justify-center text-muted-foreground">Stream not available</div>
         )}
         <span className="absolute top-3 left-3 bg-destructive text-destructive-foreground text-[10px] font-bold uppercase px-2 py-1 rounded flex items-center gap-1">
           <span className="size-1.5 rounded-full bg-current animate-pulse" /> Live
@@ -125,9 +136,9 @@ function LiveCard({ item }: { item: LiveClass }) {
         <p className="text-xs text-muted-foreground">
           {item.teacher ?? "—"}{item.subject ? ` • ${item.subject}` : ""}
         </p>
-        {item.stream_url && src.kind !== "file" && (
+        {streamUrl && src.kind !== "file" && (
           <Button asChild size="sm" className="w-full">
-            <a href={item.stream_url} target="_blank" rel="noreferrer">
+            <a href={streamUrl} target="_blank" rel="noreferrer">
               <ExternalLink className="size-4 mr-1" /> Join Live
             </a>
           </Button>
