@@ -28,6 +28,10 @@ function Landing() {
         </div>
       </header>
 
+      <section className="max-w-7xl mx-auto px-4 md:px-6 pt-6">
+        <HeroBanner />
+      </section>
+
       <section className="max-w-7xl mx-auto px-6 py-20 text-center">
         <span className="inline-block text-xs font-bold text-accent uppercase tracking-widest mb-4">India's Smart Exam Prep</span>
         <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight text-foreground max-w-3xl mx-auto">
