@@ -482,11 +482,19 @@ function LiveClassDialog({ batches, initial, onSaved, trigger }: any) {
   const [form, setForm] = useState<any>({ batch_id: "", title: "", teacher: "", subject: "", thumbnail_url: "", stream_url: "", status: "scheduled", scheduled_at: "" });
 
   useEffect(() => {
-    if (open) {
-      setForm(initial ? {
+    if (!open) return;
+    if (initial) {
+      setForm({
         ...initial,
+        stream_url: "",
         scheduled_at: initial.scheduled_at ? new Date(initial.scheduled_at).toISOString().slice(0, 16) : "",
-      } : { batch_id: batches?.[0]?.id ?? "", title: "", teacher: "", subject: "", thumbnail_url: "", stream_url: "", status: "scheduled", scheduled_at: "" });
+      });
+      // stream_url is column-restricted; admins fetch it via RPC
+      supabase.rpc("get_live_stream_url", { _class_id: initial.id }).then(({ data }) => {
+        setForm((f: any) => ({ ...f, stream_url: (data as string | null) ?? "" }));
+      });
+    } else {
+      setForm({ batch_id: batches?.[0]?.id ?? "", title: "", teacher: "", subject: "", thumbnail_url: "", stream_url: "", status: "scheduled", scheduled_at: "" });
     }
   }, [open, initial, batches]);
 
