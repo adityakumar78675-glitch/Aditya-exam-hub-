@@ -416,7 +416,9 @@ function LiveAdmin() {
   });
   const { data: items = [] } = useQuery({
     queryKey: ["admin-live-classes"],
-    queryFn: async () => (await supabase.from("live_classes").select("*").order("created_at", { ascending: false })).data ?? [],
+    queryFn: async () => (await supabase.from("live_classes")
+      .select("id, batch_id, title, teacher, subject, thumbnail_url, status, scheduled_at, started_at, ended_at, created_at, updated_at")
+      .order("created_at", { ascending: false })).data ?? [],
   });
 
   useEffect(() => {
