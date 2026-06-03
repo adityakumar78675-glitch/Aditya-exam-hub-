@@ -185,6 +185,54 @@ export type Database = {
           },
         ]
       }
+      live_classes: {
+        Row: {
+          batch_id: string
+          created_at: string
+          ended_at: string | null
+          id: string
+          scheduled_at: string | null
+          started_at: string | null
+          status: string
+          stream_url: string | null
+          subject: string | null
+          teacher: string | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          scheduled_at?: string | null
+          started_at?: string | null
+          status?: string
+          stream_url?: string | null
+          subject?: string | null
+          teacher?: string | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          scheduled_at?: string | null
+          started_at?: string | null
+          status?: string
+          stream_url?: string | null
+          subject?: string | null
+          teacher?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       materials: {
         Row: {
           created_at: string
