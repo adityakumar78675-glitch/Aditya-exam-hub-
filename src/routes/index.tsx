@@ -2,6 +2,7 @@ import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { GraduationCap, BookOpen, Video, FileText, Trophy } from "lucide-react";
+import { HeroBanner } from "@/components/HeroBanner";
 
 export const Route = createFileRoute("/")({
   component: Landing,
