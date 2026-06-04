@@ -36,6 +36,7 @@ function AdminPage() {
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="batches">Batches</TabsTrigger>
+            <TabsTrigger value="curriculum">Curriculum</TabsTrigger>
             <TabsTrigger value="lectures">Lectures</TabsTrigger>
             <TabsTrigger value="live">Live</TabsTrigger>
             <TabsTrigger value="banners">Banners</TabsTrigger>
@@ -43,11 +44,13 @@ function AdminPage() {
           </TabsList>
           <TabsContent value="overview" className="mt-6"><Overview /></TabsContent>
           <TabsContent value="batches" className="mt-6"><BatchesAdmin /></TabsContent>
+          <TabsContent value="curriculum" className="mt-6"><CurriculumAdmin /></TabsContent>
           <TabsContent value="lectures" className="mt-6"><LecturesAdmin /></TabsContent>
           <TabsContent value="live" className="mt-6"><LiveAdmin /></TabsContent>
           <TabsContent value="banners" className="mt-6"><BannersAdmin /></TabsContent>
           <TabsContent value="students" className="mt-6"><StudentsAdmin /></TabsContent>
         </Tabs>
+
       </div>
     </div>
   );
