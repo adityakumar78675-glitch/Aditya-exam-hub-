@@ -271,16 +271,29 @@ function LecturesAdmin() {
 
 function LectureDialog({ batchId, initial, onSaved, trigger }: any) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<any>({ title: "", description: "", video_url: "", thumbnail_url: "", duration_minutes: 0, order_index: 0, is_live: false, is_free: false, scheduled_at: "" });
+  const [form, setForm] = useState<any>({ title: "", description: "", video_url: "", thumbnail_url: "", duration_minutes: 0, order_index: 0, is_live: false, is_free: false, scheduled_at: "", subject_id: "", chapter_id: "" });
   const [materials, setMaterials] = useState<any[]>([]);
   const [newMat, setNewMat] = useState({ title: "", file_url: "", file_type: "pdf" });
+
+  const { data: subjects = [] } = useQuery({
+    queryKey: ["dlg-subjects", batchId, open],
+    enabled: open && !!batchId,
+    queryFn: async () => (await (supabase.from as any)("subjects").select("id,name").eq("batch_id", batchId).order("sort_order")).data ?? [],
+  });
+  const { data: chapters = [] } = useQuery({
+    queryKey: ["dlg-chapters", form.subject_id, open],
+    enabled: open && !!form.subject_id,
+    queryFn: async () => (await (supabase.from as any)("chapters").select("id,title").eq("subject_id", form.subject_id).order("sort_order")).data ?? [],
+  });
 
   useEffect(() => {
     if (open) {
       setForm(initial ? {
         ...initial,
+        subject_id: initial.subject_id ?? "",
+        chapter_id: initial.chapter_id ?? "",
         scheduled_at: initial.scheduled_at ? new Date(initial.scheduled_at).toISOString().slice(0, 16) : "",
-      } : { title: "", description: "", video_url: "", thumbnail_url: "", duration_minutes: 0, order_index: 0, is_live: false, is_free: false, scheduled_at: "" });
+      } : { title: "", description: "", video_url: "", thumbnail_url: "", duration_minutes: 0, order_index: 0, is_live: false, is_free: false, scheduled_at: "", subject_id: "", chapter_id: "" });
       setMaterials(initial?.materials ?? []);
     }
   }, [open, initial]);
@@ -288,7 +301,7 @@ function LectureDialog({ batchId, initial, onSaved, trigger }: any) {
 
   async function save() {
     if (!form.title) { toast.error("Title required"); return; }
-    const payload = {
+    const payload: any = {
       batch_id: batchId,
       title: form.title,
       description: form.description,
@@ -299,14 +312,14 @@ function LectureDialog({ batchId, initial, onSaved, trigger }: any) {
       is_live: form.is_live,
       is_free: !!form.is_free,
       scheduled_at: form.scheduled_at ? new Date(form.scheduled_at).toISOString() : null,
-
+      subject_id: form.subject_id || null,
+      chapter_id: form.chapter_id || null,
     };
     const res = initial
       ? await supabase.from("lectures").update(payload).eq("id", initial.id).select().single()
       : await supabase.from("lectures").insert(payload).select().single();
     if (res.error) { toast.error(res.error.message); return; }
     const lectureId = res.data.id;
-    // Save new materials (existing ones aren't edited here for simplicity)
     if (newMat.title && newMat.file_url) {
       await supabase.from("materials").insert({ lecture_id: lectureId, ...newMat });
     }
@@ -314,6 +327,7 @@ function LectureDialog({ batchId, initial, onSaved, trigger }: any) {
     setOpen(false);
     onSaved?.();
   }
+
 
   async function delMat(id: string) {
     await supabase.from("materials").delete().eq("id", id);
