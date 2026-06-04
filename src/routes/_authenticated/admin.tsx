@@ -711,3 +711,151 @@ function BannerDialog({ initial, onSaved, trigger }: any) {
     </Dialog>
   );
 }
+
+// ---------- Curriculum (Subjects + Chapters) ----------
+function CurriculumAdmin() {
+  const qc = useQueryClient();
+  const [batchId, setBatchId] = useState<string>("");
+
+  const { data: batches = [] } = useQuery({
+    queryKey: ["admin-batches-min"],
+    queryFn: async () => (await supabase.from("batches").select("id, title").order("created_at", { ascending: false })).data ?? [],
+  });
+  useEffect(() => { if (!batchId && batches[0]) setBatchId(batches[0].id); }, [batches, batchId]);
+
+  const { data: subjects = [] } = useQuery({
+    queryKey: ["adm-subjects", batchId],
+    enabled: !!batchId,
+    queryFn: async () => (await (supabase.from as any)("subjects").select("*").eq("batch_id", batchId).order("sort_order")).data ?? [],
+  });
+
+  const [newSubject, setNewSubject] = useState({ name: "", icon: "" });
+  const addSubject = useMutation({
+    mutationFn: async () => {
+      if (!newSubject.name.trim()) throw new Error("Name required");
+      const { error } = await (supabase.from as any)("subjects").insert({
+        batch_id: batchId,
+        name: newSubject.name.trim(),
+        icon: newSubject.icon || null,
+        sort_order: subjects.length,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Subject added"); setNewSubject({ name: "", icon: "" }); qc.invalidateQueries({ queryKey: ["adm-subjects"] }); },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const delSubject = useMutation({
+    mutationFn: async (id: string) => { const { error } = await (supabase.from as any)("subjects").delete().eq("id", id); if (error) throw error; },
+    onSuccess: () => { toast.success("Deleted"); qc.invalidateQueries({ queryKey: ["adm-subjects"] }); qc.invalidateQueries({ queryKey: ["adm-chapters"] }); },
+  });
+  const renameSubject = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const { error } = await (supabase.from as any)("subjects").update({ name }).eq("id", id); if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["adm-subjects"] }),
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="max-w-xs">
+        <Label>Batch</Label>
+        <Select value={batchId} onValueChange={setBatchId}>
+          <SelectTrigger><SelectValue placeholder="Select batch" /></SelectTrigger>
+          <SelectContent>{batches.map((b: any) => <SelectItem key={b.id} value={b.id}>{b.title}</SelectItem>)}</SelectContent>
+        </Select>
+      </div>
+
+      {batchId && (
+        <>
+          <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+            <p className="font-semibold">Add Subject</p>
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_120px_auto] gap-2">
+              <Input placeholder="Subject name (e.g. Physics)" value={newSubject.name} onChange={(e) => setNewSubject({ ...newSubject, name: e.target.value })} />
+              <Input placeholder="Icon (emoji)" value={newSubject.icon} onChange={(e) => setNewSubject({ ...newSubject, icon: e.target.value })} />
+              <Button onClick={() => addSubject.mutate()} disabled={addSubject.isPending}><Plus className="size-4 mr-1" /> Add</Button>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {subjects.map((s: any) => (
+              <SubjectRow key={s.id} subject={s} onRename={(name) => renameSubject.mutate({ id: s.id, name })} onDelete={() => { if (confirm("Delete subject and all its chapters?")) delSubject.mutate(s.id); }} />
+            ))}
+            {subjects.length === 0 && <p className="text-sm text-muted-foreground">No subjects yet.</p>}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function SubjectRow({ subject, onRename, onDelete }: any) {
+  const qc = useQueryClient();
+  const [name, setName] = useState(subject.name);
+  const [open, setOpen] = useState(false);
+  const [newChapter, setNewChapter] = useState("");
+
+  useEffect(() => setName(subject.name), [subject.name]);
+
+  const { data: chapters = [] } = useQuery({
+    queryKey: ["adm-chapters", subject.id, open],
+    enabled: open,
+    queryFn: async () => (await (supabase.from as any)("chapters").select("*").eq("subject_id", subject.id).order("sort_order")).data ?? [],
+  });
+
+  const addChapter = useMutation({
+    mutationFn: async () => {
+      if (!newChapter.trim()) throw new Error("Title required");
+      const { error } = await (supabase.from as any)("chapters").insert({
+        subject_id: subject.id, title: newChapter.trim(), sort_order: chapters.length,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Chapter added"); setNewChapter(""); qc.invalidateQueries({ queryKey: ["adm-chapters", subject.id] }); },
+    onError: (e: any) => toast.error(e.message),
+  });
+  const delChapter = useMutation({
+    mutationFn: async (id: string) => { const { error } = await (supabase.from as any)("chapters").delete().eq("id", id); if (error) throw error; },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["adm-chapters", subject.id] }),
+  });
+  const renameChapter = useMutation({
+    mutationFn: async ({ id, title }: { id: string; title: string }) => {
+      const { error } = await (supabase.from as any)("chapters").update({ title }).eq("id", id); if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["adm-chapters", subject.id] }),
+  });
+
+  return (
+    <div className="bg-card border border-border rounded-xl">
+      <div className="p-3 flex items-center gap-2">
+        <button onClick={() => setOpen(!open)} className="text-xs font-semibold text-muted-foreground w-6">{open ? "▾" : "▸"}</button>
+        <span className="text-lg">{subject.icon || "📘"}</span>
+        <Input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name !== subject.name && onRename(name)} className="flex-1" />
+        <Button size="sm" variant="ghost" onClick={onDelete}><Trash2 className="size-4 text-destructive" /></Button>
+      </div>
+      {open && (
+        <div className="border-t border-border p-3 space-y-2">
+          <div className="flex gap-2">
+            <Input placeholder="New chapter title" value={newChapter} onChange={(e) => setNewChapter(e.target.value)} />
+            <Button size="sm" onClick={() => addChapter.mutate()} disabled={addChapter.isPending}><Plus className="size-4" /></Button>
+          </div>
+          {chapters.map((c: any) => (
+            <ChapterRow key={c.id} chapter={c} onRename={(title: string) => renameChapter.mutate({ id: c.id, title })} onDelete={() => { if (confirm("Delete chapter?")) delChapter.mutate(c.id); }} />
+          ))}
+          {chapters.length === 0 && <p className="text-xs text-muted-foreground">No chapters yet.</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ChapterRow({ chapter, onRename, onDelete }: any) {
+  const [title, setTitle] = useState(chapter.title);
+  useEffect(() => setTitle(chapter.title), [chapter.title]);
+  return (
+    <div className="flex items-center gap-2 pl-2">
+      <span className="text-muted-foreground">•</span>
+      <Input value={title} onChange={(e) => setTitle(e.target.value)} onBlur={() => title !== chapter.title && onRename(title)} className="flex-1 h-8 text-sm" />
+      <Button size="sm" variant="ghost" onClick={onDelete}><Trash2 className="size-3 text-destructive" /></Button>
+    </div>
+  );
+}
