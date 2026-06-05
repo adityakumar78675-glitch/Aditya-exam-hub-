@@ -111,19 +111,70 @@ function BatchDetail() {
   console.log("Purchased:", hasAccess);
   console.log("[BatchDetail] userId:", user?.id, "isAdmin:", isAdmin, "hasAccess:", hasAccess);
 
-  const { data: lectures = [], isLoading: lecturesLoading, isError: lecturesError, error: lecturesErrorInfo, refetch: refetchLectures } = useQuery({
-    queryKey: ["lectures", batchId],
+  const { data: curriculum = [], isLoading: curriculumLoading, isFetching: curriculumFetching, isError: curriculumError, error: curriculumErrorInfo, refetch: refetchCurriculum } = useQuery({
+    queryKey: ["curriculum", batchId],
     enabled: !!batch,
     queryFn: async () => {
-      const { data, error } = await withTimeout(supabase
-        .from("lectures")
-        .select("*, materials(*)")
-        .eq("batch_id", batchId)
-        .order("order_index"), "Lecture loading");
-      if (error) throw error;
-      return data ?? [];
+      const [subjectsResult, lecturesResult] = await withTimeout(Promise.all([
+        supabase
+          .from("subjects")
+          .select("id, name, sort_order, chapters(id, subject_id, title, sort_order)")
+          .eq("batch_id", batchId)
+          .order("sort_order", { ascending: true })
+          .order("sort_order", { referencedTable: "chapters", ascending: true }),
+        supabase
+          .from("lectures")
+          .select("*, materials(*)")
+          .eq("batch_id", batchId)
+          .order("order_index", { ascending: true }),
+      ]), "Curriculum loading");
+      if (subjectsResult.error) throw subjectsResult.error;
+      if (lecturesResult.error) throw lecturesResult.error;
+
+      const lecturesByChapter = new Map<string, Lecture[]>();
+      const fallbackBySubject = new Map<string, Lecture[]>();
+      ((lecturesResult.data ?? []) as Lecture[]).forEach((lecture) => {
+        if (lecture.chapter_id) {
+          const items = lecturesByChapter.get(lecture.chapter_id) ?? [];
+          items.push(lecture);
+          lecturesByChapter.set(lecture.chapter_id, items);
+          return;
+        }
+        if (lecture.subject_id) {
+          const items = fallbackBySubject.get(lecture.subject_id) ?? [];
+          items.push(lecture);
+          fallbackBySubject.set(lecture.subject_id, items);
+        }
+      });
+
+      const structured = ((subjectsResult.data ?? []) as Array<Omit<Subject, "chapters"> & { chapters?: Chapter[] }>).map((subject) => {
+        const chapters = (subject.chapters ?? [])
+          .slice()
+          .sort((a, b) => (a.sort_order - b.sort_order) || a.title.localeCompare(b.title))
+          .map((chapter) => ({ ...chapter, lectures: lecturesByChapter.get(chapter.id) ?? [] }));
+        const fallbackLectures = fallbackBySubject.get(subject.id) ?? [];
+        return {
+          id: subject.id,
+          name: subject.name,
+          sort_order: subject.sort_order,
+          chapters: chapters.length > 0 || fallbackLectures.length === 0
+            ? chapters
+            : [{ id: `fallback-${subject.id}`, subject_id: subject.id, title: "Lectures", sort_order: 0, lectures: fallbackLectures }],
+        };
+      });
+
+      if (structured.length > 0) return structured;
+
+      const looseLectures = ((lecturesResult.data ?? []) as Lecture[]).filter((lecture) => !lecture.subject_id && !lecture.chapter_id);
+      if (looseLectures.length > 0) {
+        return [{ id: "fallback-all", name: "All Lectures", sort_order: 0, chapters: [{ id: "fallback-chapter", subject_id: "fallback-all", title: "Lectures", sort_order: 0, lectures: looseLectures }] }];
+      }
+
+      return [];
     },
-    retry: 1,
+    retry: 2,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const enroll = useMutation({
@@ -140,29 +191,7 @@ function BatchDetail() {
     onError: (e: any) => toast.error(e.message),
   });
 
-  const subjects = useMemo(() => {
-    const names = new Set<string>();
-    (batch?.subjects ?? []).forEach((subject: string) => {
-      if (subject?.trim()) names.add(subject.trim());
-    });
-    lectures.forEach((lecture: any) => names.add(getLectureSubject(lecture, batch?.subjects?.[0] ?? "All Lectures")));
-    if (names.size === 0) names.add("All Lectures");
-
-    return Array.from(names).map((subjectName) => {
-      const subjectLectures = lectures.filter((lecture: any) => getLectureSubject(lecture, subjectName) === subjectName);
-      const chapterNames = new Set<string>();
-      subjectLectures.forEach((lecture: any) => chapterNames.add(getLectureChapter(lecture)));
-      if (chapterNames.size === 0) chapterNames.add("Lectures");
-
-      return {
-        name: subjectName,
-        chapters: Array.from(chapterNames).map((chapterName) => ({
-          name: chapterName,
-          lectures: subjectLectures.filter((lecture: any) => getLectureChapter(lecture) === chapterName),
-        })),
-      };
-    });
-  }, [batch, lectures]);
+  const subjects = useMemo(() => curriculum, [curriculum]);
 
   useEffect(() => {
     if (!selectedSubject && subjects[0]) setSelectedSubject(subjects[0].name);
