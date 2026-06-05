@@ -5,11 +5,32 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
-import { ArrowLeft, BookOpen, ChevronRight, FileText, PlayCircle, Radio, Lock, RefreshCcw, Search } from "lucide-react";
+import { ArrowLeft, BookOpen, ChevronRight, FileText, PlayCircle, Radio, Lock, RefreshCcw } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/batches/$batchId")({ component: BatchDetail });
+
+const LOAD_TIMEOUT_MS = 5000;
+
+function withTimeout<T>(task: PromiseLike<T>, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    Promise.resolve(task),
+    new Promise<T>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label} took more than 5 seconds. Please retry.`)), LOAD_TIMEOUT_MS);
+    }),
+  ]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
+function getLectureSubject(lecture: any, fallback: string) {
+  return lecture.subject || lecture.subject_name || fallback || "All Lectures";
+}
+
+function getLectureChapter(lecture: any) {
+  return lecture.chapter_title || lecture.chapter || "Lectures";
+}
 
 function ErrorState({ title, message, onRetry }: { title: string; message: string; onRetry: () => void }) {
   return (
@@ -26,22 +47,27 @@ function ErrorState({ title, message, onRetry }: { title: string; message: strin
   );
 }
 
-const UNCATEGORIZED = "__uncategorized__";
-
 function BatchDetail() {
   const { batchId } = Route.useParams();
   const { user, role } = useAuth();
   const navigate = useNavigate();
   const isAdmin = role === "admin";
   const qc = useQueryClient();
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string>("");
-  const [selectedChapterId, setSelectedChapterId] = useState<string>("");
-  const [search, setSearch] = useState("");
+  const [selectedSubject, setSelectedSubject] = useState("");
+  const [selectedChapter, setSelectedChapter] = useState("");
+
+  useEffect(() => {
+    console.log("Batch ID:", batchId);
+  }, [batchId]);
 
   const { data: batch, isLoading: batchLoading, isError: batchError, error: batchErrorInfo, refetch: refetchBatch } = useQuery({
     queryKey: ["batch", batchId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("batches").select("*").eq("id", batchId).maybeSingle();
+      const { data, error } = await withTimeout(
+        supabase.from("batches").select("*").eq("id", batchId).maybeSingle(),
+        "Batch loading"
+      );
+      console.log("[BatchDetail] batchId:", batchId, "data:", data, "error:", error);
       if (error) throw error;
       return data;
     },
@@ -52,12 +78,13 @@ function BatchDetail() {
     queryKey: ["enrollment-check", batchId, user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await withTimeout(supabase
         .from("enrollments")
         .select("id")
         .eq("student_id", user!.id)
         .eq("batch_id", batchId)
-        .maybeSingle();
+        .maybeSingle(), "Enrollment check");
+      console.log("[BatchDetail] enrollment:", data);
       if (error) throw error;
       return data;
     },
@@ -67,43 +94,20 @@ function BatchDetail() {
   const batchPrice = Number(batch?.discount_price ?? batch?.price ?? 0);
   const isFreeBatch = batchPrice === 0;
   const hasAccess = isAdmin || isFreeBatch || !!enrollment;
-
-  const { data: subjectsData = [], isLoading: subjectsLoading, refetch: refetchSubjects } = useQuery({
-    queryKey: ["batch-subjects", batchId],
-    enabled: !!batch,
-    queryFn: async () => {
-      const { data, error } = await (supabase.from as any)("subjects")
-        .select("*")
-        .eq("batch_id", batchId)
-        .order("sort_order");
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
-  const { data: chaptersData = [], refetch: refetchChapters } = useQuery({
-    queryKey: ["batch-chapters", batchId, subjectsData.map((s: any) => s.id).join(",")],
-    enabled: subjectsData.length > 0,
-    queryFn: async () => {
-      const ids = subjectsData.map((s: any) => s.id);
-      const { data, error } = await (supabase.from as any)("chapters")
-        .select("*")
-        .in("subject_id", ids)
-        .order("sort_order");
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
+  console.log("User:", user?.id);
+  console.log("Batch:", batchId);
+  console.log("Purchased:", hasAccess);
+  console.log("[BatchDetail] userId:", user?.id, "isAdmin:", isAdmin, "hasAccess:", hasAccess);
 
   const { data: lectures = [], isLoading: lecturesLoading, isError: lecturesError, error: lecturesErrorInfo, refetch: refetchLectures } = useQuery({
     queryKey: ["lectures", batchId],
     enabled: !!batch,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await withTimeout(supabase
         .from("lectures")
         .select("*, materials(*)")
         .eq("batch_id", batchId)
-        .order("order_index");
+        .order("order_index"), "Lecture loading");
       if (error) throw error;
       return data ?? [];
     },
@@ -124,69 +128,56 @@ function BatchDetail() {
     onError: (e: any) => toast.error(e.message),
   });
 
-  // Build subject → chapter → lectures tree from real tables, with legacy fallback
-  const tree = useMemo(() => {
-    const subs: Array<{ id: string; name: string; icon: string | null; chapters: Array<{ id: string; title: string; lectures: any[] }> }> = [];
-    subjectsData.forEach((s: any) => {
-      const subjChapters = chaptersData
-        .filter((c: any) => c.subject_id === s.id)
-        .map((c: any) => ({
-          id: c.id,
-          title: c.title,
-          lectures: lectures.filter((l: any) => l.chapter_id === c.id),
-        }));
-      // Lectures attached to subject but no chapter
-      const orphans = lectures.filter((l: any) => l.subject_id === s.id && !l.chapter_id);
-      if (orphans.length) subjChapters.push({ id: `${s.id}-orphan`, title: "Other lectures", lectures: orphans });
-      subs.push({ id: s.id, name: s.name, icon: s.icon, chapters: subjChapters });
+  const subjects = useMemo(() => {
+    const names = new Set<string>();
+    (batch?.subjects ?? []).forEach((subject: string) => {
+      if (subject?.trim()) names.add(subject.trim());
     });
-    // Legacy: lectures with no subject_id
-    const legacy = lectures.filter((l: any) => !l.subject_id);
-    if (legacy.length) {
-      subs.push({
-        id: UNCATEGORIZED,
-        name: "All Lectures",
-        icon: null,
-        chapters: [{ id: `${UNCATEGORIZED}-all`, title: "Lectures", lectures: legacy }],
-      });
-    }
-    return subs;
-  }, [subjectsData, chaptersData, lectures]);
+    lectures.forEach((lecture: any) => names.add(getLectureSubject(lecture, batch?.subjects?.[0] ?? "All Lectures")));
+    if (names.size === 0) names.add("All Lectures");
 
-  // Apply search filter
-  const filteredTree = useMemo(() => {
-    if (!search.trim()) return tree;
-    const q = search.toLowerCase();
-    return tree
-      .map((s) => ({
-        ...s,
-        chapters: s.chapters
-          .map((c) => ({ ...c, lectures: c.lectures.filter((l: any) => l.title?.toLowerCase().includes(q)) }))
-          .filter((c) => c.lectures.length > 0 || c.title.toLowerCase().includes(q)),
-      }))
-      .filter((s) => s.chapters.length > 0 || s.name.toLowerCase().includes(q));
-  }, [tree, search]);
+    return Array.from(names).map((subjectName) => {
+      const subjectLectures = lectures.filter((lecture: any) => getLectureSubject(lecture, subjectName) === subjectName);
+      const chapterNames = new Set<string>();
+      subjectLectures.forEach((lecture: any) => chapterNames.add(getLectureChapter(lecture)));
+      if (chapterNames.size === 0) chapterNames.add("Lectures");
+
+      return {
+        name: subjectName,
+        chapters: Array.from(chapterNames).map((chapterName) => ({
+          name: chapterName,
+          lectures: subjectLectures.filter((lecture: any) => getLectureChapter(lecture) === chapterName),
+        })),
+      };
+    });
+  }, [batch, lectures]);
 
   useEffect(() => {
-    if (!selectedSubjectId && filteredTree[0]) setSelectedSubjectId(filteredTree[0].id);
-    if (selectedSubjectId && !filteredTree.some((s) => s.id === selectedSubjectId)) {
-      setSelectedSubjectId(filteredTree[0]?.id ?? "");
+    if (!selectedSubject && subjects[0]) setSelectedSubject(subjects[0].name);
+    if (selectedSubject && !subjects.some((subject) => subject.name === selectedSubject)) {
+      setSelectedSubject(subjects[0]?.name ?? "");
     }
-  }, [selectedSubjectId, filteredTree]);
+  }, [selectedSubject, subjects]);
 
-  const activeSubject = filteredTree.find((s) => s.id === selectedSubjectId) ?? filteredTree[0];
+  const activeSubject = subjects.find((subject) => subject.name === selectedSubject) ?? subjects[0];
 
   useEffect(() => {
     if (!activeSubject) return;
-    if (!selectedChapterId || !activeSubject.chapters.some((c) => c.id === selectedChapterId)) {
-      setSelectedChapterId(activeSubject.chapters[0]?.id ?? "");
+    if (!selectedChapter || !activeSubject.chapters.some((chapter) => chapter.name === selectedChapter)) {
+      setSelectedChapter(activeSubject.chapters[0]?.name ?? "");
     }
-  }, [activeSubject, selectedChapterId]);
+  }, [activeSubject, selectedChapter]);
 
-  const activeChapter = activeSubject?.chapters.find((c) => c.id === selectedChapterId) ?? activeSubject?.chapters[0];
+  const activeChapter = activeSubject?.chapters.find((chapter) => chapter.name === selectedChapter) ?? activeSubject?.chapters[0];
+
+  useEffect(() => {
+    if (batch && hasAccess) console.log("Opening Batch");
+  }, [batch, hasAccess]);
 
   const retryAll = () => {
-    refetchBatch(); refetchEnrollment(); refetchLectures(); refetchSubjects(); refetchChapters();
+    refetchBatch();
+    refetchEnrollment();
+    refetchLectures();
   };
 
   if (batchLoading || enrollLoading) {
@@ -219,9 +210,6 @@ function BatchDetail() {
     );
   }
 
-  const totalLectures = lectures.length;
-  const subjectsLoadingState = subjectsLoading || lecturesLoading;
-
   return (
     <div className="flex flex-col">
       <header className="h-16 border-b border-border bg-card/80 backdrop-blur sticky top-0 z-10 px-4 md:px-8 flex items-center gap-3">
@@ -246,7 +234,11 @@ function BatchDetail() {
                 <p className="text-xs text-muted-foreground uppercase font-semibold">Price</p>
                 <p className="text-2xl font-bold">₹{batchPrice}</p>
               </div>
-              <Button size="lg" disabled={!batch.enrollment_open || enroll.isPending} onClick={() => enroll.mutate()}>
+              <Button
+                size="lg"
+                disabled={!batch.enrollment_open || enroll.isPending}
+                onClick={() => enroll.mutate()}
+              >
                 {batch.enrollment_open ? "Buy Now / Enroll" : "Enrollment Closed"}
               </Button>
             </div>
@@ -255,11 +247,8 @@ function BatchDetail() {
 
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <h3 className="text-xl font-bold">Subjects & Chapters{totalLectures ? ` (${totalLectures} lectures)` : ""}</h3>
-            <div className="relative max-w-xs w-full">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search lectures…" className="pl-8 h-9" />
-            </div>
+            <h3 className="text-xl font-bold">Subjects, Chapters & Lectures{lectures.length ? ` (${lectures.length})` : ""}</h3>
+            {lecturesError && <Button variant="outline" size="sm" onClick={() => refetchLectures()}><RefreshCcw className="size-4 mr-1" /> Retry</Button>}
           </div>
 
           {!hasAccess && !isAdmin && (
@@ -270,7 +259,7 @@ function BatchDetail() {
             </div>
           )}
 
-          {subjectsLoadingState ? (
+          {lecturesLoading ? (
             <div className="space-y-2">
               <Skeleton className="h-12 w-full" />
               <Skeleton className="h-16 w-full" />
@@ -281,109 +270,93 @@ function BatchDetail() {
               <p className="font-semibold">Lectures could not load</p>
               <p className="text-sm text-muted-foreground">{(lecturesErrorInfo as Error | undefined)?.message ?? "Please retry."}</p>
             </div>
-          ) : filteredTree.length === 0 ? (
-            <div className="bg-card border border-border rounded-xl p-8 text-center text-sm text-muted-foreground">
-              No subjects or lectures added yet.
-            </div>
           ) : (
-            <>
-              {/* Subject cards (PW-style grid) — tap to open chapter list */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                {filteredTree.map((s) => {
-                  const totalLec = s.chapters.reduce((t, c) => t + c.lectures.length, 0);
-                  const isActive = selectedSubjectId === s.id;
-                  const isUncat = s.id === UNCATEGORIZED;
-                  const handleClick = () => {
-                    if (isUncat) setSelectedSubjectId(s.id);
-                    else navigate({ to: "/batches/$batchId/subjects/$subjectId", params: { batchId, subjectId: s.id } });
-                  };
-                  return (
-                    <button
-                      key={s.id}
-                      onClick={handleClick}
-                      className={`text-left rounded-2xl border p-4 transition-all active:scale-[0.99] ${
-                        isActive && isUncat ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-card hover:border-primary/50 hover:shadow-sm"
-                      }`}
-                    >
-                      <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-2 text-lg">
-                        {s.icon ? <span>{s.icon}</span> : <BookOpen className="size-5" />}
-                      </div>
-                      <p className="font-semibold truncate">{s.name}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{s.chapters.length} chapter{s.chapters.length === 1 ? "" : "s"} • {totalLec} lec</p>
-                    </button>
-                  );
-                })}
+            <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-4">
+              <div className="bg-card border border-border rounded-xl p-3 space-y-2 h-fit">
+                {subjects.map((subject) => (
+                  <button
+                    key={subject.name}
+                    type="button"
+                    onClick={() => setSelectedSubject(subject.name)}
+                    className={`w-full text-left rounded-lg px-3 py-2.5 text-sm font-semibold flex items-center justify-between gap-2 transition-colors ${
+                      selectedSubject === subject.name ? "bg-primary text-primary-foreground" : "hover:bg-muted text-foreground"
+                    }`}
+                  >
+                    <span className="truncate flex items-center gap-2"><BookOpen className="size-4 shrink-0" /> {subject.name}</span>
+                    <span className="text-xs opacity-80">{subject.chapters.reduce((total, chapter) => total + chapter.lectures.length, 0)}</span>
+                  </button>
+                ))}
               </div>
 
-              {/* Chapter chips — only for legacy uncategorized lectures (inline view) */}
-              {activeSubject?.id === UNCATEGORIZED && activeSubject.chapters.length > 0 && (
-                <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-                  {activeSubject.chapters.map((c) => (
+              <div className="space-y-3 min-w-0">
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {(activeSubject?.chapters ?? []).map((chapter) => (
                     <button
-                      key={c.id}
-                      onClick={() => setSelectedChapterId(c.id)}
-                      className={`shrink-0 rounded-full border px-4 py-1.5 text-sm font-semibold transition-colors ${
-                        selectedChapterId === c.id ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted"
+                      key={chapter.name}
+                      type="button"
+                      onClick={() => setSelectedChapter(chapter.name)}
+                      className={`shrink-0 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
+                        selectedChapter === chapter.name ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted"
                       }`}
                     >
-                      {c.title} <span className="opacity-75">({c.lectures.length})</span>
+                      {chapter.name} <span className="opacity-75">({chapter.lectures.length})</span>
                     </button>
                   ))}
                 </div>
-              )}
 
-              {/* Lectures — inline only for legacy uncategorized */}
-              {activeSubject?.id === UNCATEGORIZED && (
-              <div className="space-y-2">
-                {(activeChapter?.lectures ?? []).map((l: any) => {
-                  const lectureUnlocked = hasAccess || l.is_free;
-                  return (
-                    <div
-                      key={l.id}
-                      className={`bg-card border border-border rounded-xl p-4 flex items-start gap-4 ${lectureUnlocked ? "hover:border-primary transition-colors" : "opacity-60"}`}
-                    >
-                      {l.is_live ? <Radio className="size-5 text-destructive shrink-0 mt-0.5" /> :
-                        lectureUnlocked ? <PlayCircle className="size-5 text-primary shrink-0 mt-0.5" /> :
-                        <Lock className="size-5 text-muted-foreground shrink-0 mt-0.5" />}
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold flex items-center gap-2 flex-wrap">
-                          <span className="truncate">{l.title}</span>
-                          {l.is_free && <span className="bg-accent/10 text-accent font-bold px-2 py-0.5 rounded uppercase text-[10px]">Free</span>}
-                        </h4>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {l.is_live ? `Live • ${l.scheduled_at ? new Date(l.scheduled_at).toLocaleString() : "TBD"}` : `${l.duration_minutes ?? 0} min`}
-                          {l.materials?.length > 0 && ` • ${l.materials.length} PDF/note${l.materials.length > 1 ? "s" : ""}`}
-                        </p>
-                        {l.materials?.length > 0 && lectureUnlocked && (
-                          <div className="flex flex-wrap gap-2 mt-3">
-                            {l.materials.map((material: any) => (
-                              <a key={material.id} href={material.file_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
-                                <FileText className="size-3" /> {material.title}
-                              </a>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <Button
-                        size="sm"
-                        variant={lectureUnlocked ? "default" : "outline"}
-                        disabled={!lectureUnlocked}
-                        onClick={() => navigate({ to: "/lectures/$lectureId", params: { lectureId: l.id } })}
-                        className="shrink-0"
+                <div className="space-y-2">
+                  {(activeChapter?.lectures ?? []).map((l: any) => {
+                    const lectureUnlocked = hasAccess || l.is_free;
+                    return (
+                      <div
+                        key={l.id}
+                        className={`bg-card border border-border rounded-xl p-4 flex items-start gap-4 ${lectureUnlocked ? "hover:border-primary transition-colors" : "opacity-60"}`}
                       >
-                        {lectureUnlocked ? <>Watch <ChevronRight className="size-4 ml-1" /></> : "Locked"}
-                      </Button>
+                        {l.is_live ? <Radio className="size-5 text-destructive shrink-0 mt-0.5" /> :
+                          lectureUnlocked ? <PlayCircle className="size-5 text-primary shrink-0 mt-0.5" /> :
+                          <Lock className="size-5 text-muted-foreground shrink-0 mt-0.5" />}
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold flex items-center gap-2 flex-wrap">
+                            <span className="truncate">{l.title}</span>
+                            {l.is_free && <span className="bg-accent/10 text-accent font-bold px-2 py-0.5 rounded uppercase text-[10px]">Free</span>}
+                          </h4>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {l.is_live ? `Live • ${l.scheduled_at ? new Date(l.scheduled_at).toLocaleString() : "TBD"}` : `${l.duration_minutes ?? 0} min`}
+                            {l.materials?.length > 0 && ` • ${l.materials.length} PDF/note${l.materials.length > 1 ? "s" : ""}`}
+                          </p>
+                          {l.materials?.length > 0 && lectureUnlocked && (
+                            <div className="flex flex-wrap gap-2 mt-3">
+                              {l.materials.map((material: any) => (
+                                <a key={material.id} href={material.file_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                                  <FileText className="size-3" /> {material.title}
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant={lectureUnlocked ? "default" : "outline"}
+                          disabled={!lectureUnlocked}
+                          onClick={() => {
+                            console.log("[BatchDetail] Opening lecture", { lectureId: l.id, batchId });
+                            navigate({ to: "/lectures/$lectureId", params: { lectureId: l.id } });
+                          }}
+                          className="shrink-0"
+                        >
+                          {lectureUnlocked ? <>Watch <ChevronRight className="size-4 ml-1" /></> : "Locked"}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                  {(activeChapter?.lectures.length ?? 0) === 0 && (
+                    <div className="bg-card border border-border rounded-xl p-6 text-center text-sm text-muted-foreground">
+                      No lectures uploaded in this chapter yet.
                     </div>
-                  );
-                })}
-                {(activeChapter?.lectures.length ?? 0) === 0 && (
-                  <div className="bg-card border border-border rounded-xl p-6 text-center text-sm text-muted-foreground">
-                    No lectures in this chapter yet.
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-              )}
-            </>
+            </div>
           )}
         </div>
       </div>

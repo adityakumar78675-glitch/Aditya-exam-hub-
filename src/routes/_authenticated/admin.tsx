@@ -36,7 +36,6 @@ function AdminPage() {
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="batches">Batches</TabsTrigger>
-            <TabsTrigger value="curriculum">Curriculum</TabsTrigger>
             <TabsTrigger value="lectures">Lectures</TabsTrigger>
             <TabsTrigger value="live">Live</TabsTrigger>
             <TabsTrigger value="banners">Banners</TabsTrigger>
@@ -44,13 +43,11 @@ function AdminPage() {
           </TabsList>
           <TabsContent value="overview" className="mt-6"><Overview /></TabsContent>
           <TabsContent value="batches" className="mt-6"><BatchesAdmin /></TabsContent>
-          <TabsContent value="curriculum" className="mt-6"><CurriculumAdmin /></TabsContent>
           <TabsContent value="lectures" className="mt-6"><LecturesAdmin /></TabsContent>
           <TabsContent value="live" className="mt-6"><LiveAdmin /></TabsContent>
           <TabsContent value="banners" className="mt-6"><BannersAdmin /></TabsContent>
           <TabsContent value="students" className="mt-6"><StudentsAdmin /></TabsContent>
         </Tabs>
-
       </div>
     </div>
   );
@@ -271,29 +268,16 @@ function LecturesAdmin() {
 
 function LectureDialog({ batchId, initial, onSaved, trigger }: any) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<any>({ title: "", description: "", video_url: "", thumbnail_url: "", duration_minutes: 0, order_index: 0, is_live: false, is_free: false, scheduled_at: "", subject_id: "", chapter_id: "" });
+  const [form, setForm] = useState<any>({ title: "", description: "", video_url: "", thumbnail_url: "", duration_minutes: 0, order_index: 0, is_live: false, is_free: false, scheduled_at: "" });
   const [materials, setMaterials] = useState<any[]>([]);
   const [newMat, setNewMat] = useState({ title: "", file_url: "", file_type: "pdf" });
-
-  const { data: subjects = [] } = useQuery({
-    queryKey: ["dlg-subjects", batchId, open],
-    enabled: open && !!batchId,
-    queryFn: async () => (await (supabase.from as any)("subjects").select("id,name").eq("batch_id", batchId).order("sort_order")).data ?? [],
-  });
-  const { data: chapters = [] } = useQuery({
-    queryKey: ["dlg-chapters", form.subject_id, open],
-    enabled: open && !!form.subject_id,
-    queryFn: async () => (await (supabase.from as any)("chapters").select("id,title").eq("subject_id", form.subject_id).order("sort_order")).data ?? [],
-  });
 
   useEffect(() => {
     if (open) {
       setForm(initial ? {
         ...initial,
-        subject_id: initial.subject_id ?? "",
-        chapter_id: initial.chapter_id ?? "",
         scheduled_at: initial.scheduled_at ? new Date(initial.scheduled_at).toISOString().slice(0, 16) : "",
-      } : { title: "", description: "", video_url: "", thumbnail_url: "", duration_minutes: 0, order_index: 0, is_live: false, is_free: false, scheduled_at: "", subject_id: "", chapter_id: "" });
+      } : { title: "", description: "", video_url: "", thumbnail_url: "", duration_minutes: 0, order_index: 0, is_live: false, is_free: false, scheduled_at: "" });
       setMaterials(initial?.materials ?? []);
     }
   }, [open, initial]);
@@ -301,7 +285,7 @@ function LectureDialog({ batchId, initial, onSaved, trigger }: any) {
 
   async function save() {
     if (!form.title) { toast.error("Title required"); return; }
-    const payload: any = {
+    const payload = {
       batch_id: batchId,
       title: form.title,
       description: form.description,
@@ -312,14 +296,14 @@ function LectureDialog({ batchId, initial, onSaved, trigger }: any) {
       is_live: form.is_live,
       is_free: !!form.is_free,
       scheduled_at: form.scheduled_at ? new Date(form.scheduled_at).toISOString() : null,
-      subject_id: form.subject_id || null,
-      chapter_id: form.chapter_id || null,
+
     };
     const res = initial
       ? await supabase.from("lectures").update(payload).eq("id", initial.id).select().single()
       : await supabase.from("lectures").insert(payload).select().single();
     if (res.error) { toast.error(res.error.message); return; }
     const lectureId = res.data.id;
+    // Save new materials (existing ones aren't edited here for simplicity)
     if (newMat.title && newMat.file_url) {
       await supabase.from("materials").insert({ lecture_id: lectureId, ...newMat });
     }
@@ -327,7 +311,6 @@ function LectureDialog({ batchId, initial, onSaved, trigger }: any) {
     setOpen(false);
     onSaved?.();
   }
-
 
   async function delMat(id: string) {
     await supabase.from("materials").delete().eq("id", id);
@@ -341,30 +324,7 @@ function LectureDialog({ batchId, initial, onSaved, trigger }: any) {
         <DialogHeader><DialogTitle>{initial ? "Edit lecture" : "Add lecture"}</DialogTitle></DialogHeader>
         <div className="space-y-3">
           <div><Label>Title</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Subject</Label>
-              <Select value={form.subject_id || "__none__"} onValueChange={(v) => setForm({ ...form, subject_id: v === "__none__" ? "" : v, chapter_id: "" })}>
-                <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">None</SelectItem>
-                  {subjects.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Chapter</Label>
-              <Select value={form.chapter_id || "__none__"} onValueChange={(v) => setForm({ ...form, chapter_id: v === "__none__" ? "" : v })} disabled={!form.subject_id}>
-                <SelectTrigger><SelectValue placeholder={form.subject_id ? "None" : "Pick subject first"} /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">None</SelectItem>
-                  {chapters.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
           <div><Label>Description</Label><Textarea value={form.description ?? ""} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
-
           <div><Label>Video URL (MP4, YouTube, Vimeo, Google Drive)</Label><Input value={form.video_url ?? ""} onChange={(e) => setForm({ ...form, video_url: e.target.value })} placeholder="https://..." /></div>
           <div><Label>Thumbnail URL</Label><Input value={form.thumbnail_url ?? ""} onChange={(e) => setForm({ ...form, thumbnail_url: e.target.value })} /></div>
           <div className="grid grid-cols-2 gap-3">
@@ -709,153 +669,5 @@ function BannerDialog({ initial, onSaved, trigger }: any) {
         <DialogFooter><Button onClick={save}>Save</Button></DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-// ---------- Curriculum (Subjects + Chapters) ----------
-function CurriculumAdmin() {
-  const qc = useQueryClient();
-  const [batchId, setBatchId] = useState<string>("");
-
-  const { data: batches = [] } = useQuery({
-    queryKey: ["admin-batches-min"],
-    queryFn: async () => (await supabase.from("batches").select("id, title").order("created_at", { ascending: false })).data ?? [],
-  });
-  useEffect(() => { if (!batchId && batches[0]) setBatchId(batches[0].id); }, [batches, batchId]);
-
-  const { data: subjects = [] } = useQuery({
-    queryKey: ["adm-subjects", batchId],
-    enabled: !!batchId,
-    queryFn: async () => (await (supabase.from as any)("subjects").select("*").eq("batch_id", batchId).order("sort_order")).data ?? [],
-  });
-
-  const [newSubject, setNewSubject] = useState({ name: "", icon: "" });
-  const addSubject = useMutation({
-    mutationFn: async () => {
-      if (!newSubject.name.trim()) throw new Error("Name required");
-      const { error } = await (supabase.from as any)("subjects").insert({
-        batch_id: batchId,
-        name: newSubject.name.trim(),
-        icon: newSubject.icon || null,
-        sort_order: subjects.length,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("Subject added"); setNewSubject({ name: "", icon: "" }); qc.invalidateQueries({ queryKey: ["adm-subjects"] }); },
-    onError: (e: any) => toast.error(e.message),
-  });
-  const delSubject = useMutation({
-    mutationFn: async (id: string) => { const { error } = await (supabase.from as any)("subjects").delete().eq("id", id); if (error) throw error; },
-    onSuccess: () => { toast.success("Deleted"); qc.invalidateQueries({ queryKey: ["adm-subjects"] }); qc.invalidateQueries({ queryKey: ["adm-chapters"] }); },
-  });
-  const renameSubject = useMutation({
-    mutationFn: async ({ id, name }: { id: string; name: string }) => {
-      const { error } = await (supabase.from as any)("subjects").update({ name }).eq("id", id); if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["adm-subjects"] }),
-  });
-
-  return (
-    <div className="space-y-4">
-      <div className="max-w-xs">
-        <Label>Batch</Label>
-        <Select value={batchId} onValueChange={setBatchId}>
-          <SelectTrigger><SelectValue placeholder="Select batch" /></SelectTrigger>
-          <SelectContent>{batches.map((b: any) => <SelectItem key={b.id} value={b.id}>{b.title}</SelectItem>)}</SelectContent>
-        </Select>
-      </div>
-
-      {batchId && (
-        <>
-          <div className="bg-card border border-border rounded-xl p-4 space-y-3">
-            <p className="font-semibold">Add Subject</p>
-            <div className="grid grid-cols-1 sm:grid-cols-[1fr_120px_auto] gap-2">
-              <Input placeholder="Subject name (e.g. Physics)" value={newSubject.name} onChange={(e) => setNewSubject({ ...newSubject, name: e.target.value })} />
-              <Input placeholder="Icon (emoji)" value={newSubject.icon} onChange={(e) => setNewSubject({ ...newSubject, icon: e.target.value })} />
-              <Button onClick={() => addSubject.mutate()} disabled={addSubject.isPending}><Plus className="size-4 mr-1" /> Add</Button>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {subjects.map((s: any) => (
-              <SubjectRow key={s.id} subject={s} onRename={(name: string) => renameSubject.mutate({ id: s.id, name })} onDelete={() => { if (confirm("Delete subject and all its chapters?")) delSubject.mutate(s.id); }} />
-            ))}
-            {subjects.length === 0 && <p className="text-sm text-muted-foreground">No subjects yet.</p>}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-function SubjectRow({ subject, onRename, onDelete }: any) {
-  const qc = useQueryClient();
-  const [name, setName] = useState(subject.name);
-  const [open, setOpen] = useState(false);
-  const [newChapter, setNewChapter] = useState("");
-
-  useEffect(() => setName(subject.name), [subject.name]);
-
-  const { data: chapters = [] } = useQuery({
-    queryKey: ["adm-chapters", subject.id, open],
-    enabled: open,
-    queryFn: async () => (await (supabase.from as any)("chapters").select("*").eq("subject_id", subject.id).order("sort_order")).data ?? [],
-  });
-
-  const addChapter = useMutation({
-    mutationFn: async () => {
-      if (!newChapter.trim()) throw new Error("Title required");
-      const { error } = await (supabase.from as any)("chapters").insert({
-        subject_id: subject.id, title: newChapter.trim(), sort_order: chapters.length,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("Chapter added"); setNewChapter(""); qc.invalidateQueries({ queryKey: ["adm-chapters", subject.id] }); },
-    onError: (e: any) => toast.error(e.message),
-  });
-  const delChapter = useMutation({
-    mutationFn: async (id: string) => { const { error } = await (supabase.from as any)("chapters").delete().eq("id", id); if (error) throw error; },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["adm-chapters", subject.id] }),
-  });
-  const renameChapter = useMutation({
-    mutationFn: async ({ id, title }: { id: string; title: string }) => {
-      const { error } = await (supabase.from as any)("chapters").update({ title }).eq("id", id); if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["adm-chapters", subject.id] }),
-  });
-
-  return (
-    <div className="bg-card border border-border rounded-xl">
-      <div className="p-3 flex items-center gap-2">
-        <button onClick={() => setOpen(!open)} className="text-xs font-semibold text-muted-foreground w-6">{open ? "▾" : "▸"}</button>
-        <span className="text-lg">{subject.icon || "📘"}</span>
-        <Input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name !== subject.name && onRename(name)} className="flex-1" />
-        <Button size="sm" variant="ghost" onClick={onDelete}><Trash2 className="size-4 text-destructive" /></Button>
-      </div>
-      {open && (
-        <div className="border-t border-border p-3 space-y-2">
-          <div className="flex gap-2">
-            <Input placeholder="New chapter title" value={newChapter} onChange={(e) => setNewChapter(e.target.value)} />
-            <Button size="sm" onClick={() => addChapter.mutate()} disabled={addChapter.isPending}><Plus className="size-4" /></Button>
-          </div>
-          {chapters.map((c: any) => (
-            <ChapterRow key={c.id} chapter={c} onRename={(title: string) => renameChapter.mutate({ id: c.id, title })} onDelete={() => { if (confirm("Delete chapter?")) delChapter.mutate(c.id); }} />
-          ))}
-          {chapters.length === 0 && <p className="text-xs text-muted-foreground">No chapters yet.</p>}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ChapterRow({ chapter, onRename, onDelete }: any) {
-  const [title, setTitle] = useState(chapter.title);
-  useEffect(() => setTitle(chapter.title), [chapter.title]);
-  return (
-    <div className="flex items-center gap-2 pl-2">
-      <span className="text-muted-foreground">•</span>
-      <Input value={title} onChange={(e) => setTitle(e.target.value)} onBlur={() => title !== chapter.title && onRename(title)} className="flex-1 h-8 text-sm" />
-      <Button size="sm" variant="ghost" onClick={onDelete}><Trash2 className="size-3 text-destructive" /></Button>
-    </div>
   );
 }
