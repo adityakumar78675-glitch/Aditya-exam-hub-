@@ -24,6 +24,7 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/
 import { Route as ApiPublicInitAdminRouteImport } from './routes/api/public/init-admin'
 import { Route as AuthenticatedLecturesLectureIdRouteImport } from './routes/_authenticated/lectures.$lectureId'
 import { Route as AuthenticatedBatchesBatchIdRouteImport } from './routes/_authenticated/batches.$batchId'
+import { Route as AuthenticatedBatchesBatchIdSubjectsSubjectIdRouteImport } from './routes/_authenticated/batches.$batchId.subjects.$subjectId'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -101,6 +102,12 @@ const AuthenticatedBatchesBatchIdRoute =
     path: '/$batchId',
     getParentRoute: () => AuthenticatedBatchesRoute,
   } as any)
+const AuthenticatedBatchesBatchIdSubjectsSubjectIdRoute =
+  AuthenticatedBatchesBatchIdSubjectsSubjectIdRouteImport.update({
+    id: '/subjects/$subjectId',
+    path: '/subjects/$subjectId',
+    getParentRoute: () => AuthenticatedBatchesBatchIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -114,9 +121,10 @@ export interface FileRoutesByFullPath {
   '/live': typeof AuthenticatedLiveRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/tests': typeof AuthenticatedTestsRoute
-  '/batches/$batchId': typeof AuthenticatedBatchesBatchIdRoute
+  '/batches/$batchId': typeof AuthenticatedBatchesBatchIdRouteWithChildren
   '/lectures/$lectureId': typeof AuthenticatedLecturesLectureIdRoute
   '/api/public/init-admin': typeof ApiPublicInitAdminRoute
+  '/batches/$batchId/subjects/$subjectId': typeof AuthenticatedBatchesBatchIdSubjectsSubjectIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -130,9 +138,10 @@ export interface FileRoutesByTo {
   '/live': typeof AuthenticatedLiveRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/tests': typeof AuthenticatedTestsRoute
-  '/batches/$batchId': typeof AuthenticatedBatchesBatchIdRoute
+  '/batches/$batchId': typeof AuthenticatedBatchesBatchIdRouteWithChildren
   '/lectures/$lectureId': typeof AuthenticatedLecturesLectureIdRoute
   '/api/public/init-admin': typeof ApiPublicInitAdminRoute
+  '/batches/$batchId/subjects/$subjectId': typeof AuthenticatedBatchesBatchIdSubjectsSubjectIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -148,9 +157,10 @@ export interface FileRoutesById {
   '/_authenticated/live': typeof AuthenticatedLiveRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/tests': typeof AuthenticatedTestsRoute
-  '/_authenticated/batches/$batchId': typeof AuthenticatedBatchesBatchIdRoute
+  '/_authenticated/batches/$batchId': typeof AuthenticatedBatchesBatchIdRouteWithChildren
   '/_authenticated/lectures/$lectureId': typeof AuthenticatedLecturesLectureIdRoute
   '/api/public/init-admin': typeof ApiPublicInitAdminRoute
+  '/_authenticated/batches/$batchId/subjects/$subjectId': typeof AuthenticatedBatchesBatchIdSubjectsSubjectIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -169,6 +179,7 @@ export interface FileRouteTypes {
     | '/batches/$batchId'
     | '/lectures/$lectureId'
     | '/api/public/init-admin'
+    | '/batches/$batchId/subjects/$subjectId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -185,6 +196,7 @@ export interface FileRouteTypes {
     | '/batches/$batchId'
     | '/lectures/$lectureId'
     | '/api/public/init-admin'
+    | '/batches/$batchId/subjects/$subjectId'
   id:
     | '__root__'
     | '/'
@@ -202,6 +214,7 @@ export interface FileRouteTypes {
     | '/_authenticated/batches/$batchId'
     | '/_authenticated/lectures/$lectureId'
     | '/api/public/init-admin'
+    | '/_authenticated/batches/$batchId/subjects/$subjectId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -321,15 +334,38 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBatchesBatchIdRouteImport
       parentRoute: typeof AuthenticatedBatchesRoute
     }
+    '/_authenticated/batches/$batchId/subjects/$subjectId': {
+      id: '/_authenticated/batches/$batchId/subjects/$subjectId'
+      path: '/subjects/$subjectId'
+      fullPath: '/batches/$batchId/subjects/$subjectId'
+      preLoaderRoute: typeof AuthenticatedBatchesBatchIdSubjectsSubjectIdRouteImport
+      parentRoute: typeof AuthenticatedBatchesBatchIdRoute
+    }
   }
 }
 
+interface AuthenticatedBatchesBatchIdRouteChildren {
+  AuthenticatedBatchesBatchIdSubjectsSubjectIdRoute: typeof AuthenticatedBatchesBatchIdSubjectsSubjectIdRoute
+}
+
+const AuthenticatedBatchesBatchIdRouteChildren: AuthenticatedBatchesBatchIdRouteChildren =
+  {
+    AuthenticatedBatchesBatchIdSubjectsSubjectIdRoute:
+      AuthenticatedBatchesBatchIdSubjectsSubjectIdRoute,
+  }
+
+const AuthenticatedBatchesBatchIdRouteWithChildren =
+  AuthenticatedBatchesBatchIdRoute._addFileChildren(
+    AuthenticatedBatchesBatchIdRouteChildren,
+  )
+
 interface AuthenticatedBatchesRouteChildren {
-  AuthenticatedBatchesBatchIdRoute: typeof AuthenticatedBatchesBatchIdRoute
+  AuthenticatedBatchesBatchIdRoute: typeof AuthenticatedBatchesBatchIdRouteWithChildren
 }
 
 const AuthenticatedBatchesRouteChildren: AuthenticatedBatchesRouteChildren = {
-  AuthenticatedBatchesBatchIdRoute: AuthenticatedBatchesBatchIdRoute,
+  AuthenticatedBatchesBatchIdRoute:
+    AuthenticatedBatchesBatchIdRouteWithChildren,
 }
 
 const AuthenticatedBatchesRouteWithChildren =
