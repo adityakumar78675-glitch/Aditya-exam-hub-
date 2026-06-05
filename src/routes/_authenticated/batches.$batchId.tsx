@@ -289,8 +289,8 @@ function BatchDetail() {
 
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <h3 className="text-xl font-bold">Subjects, Chapters & Lectures{lectures.length ? ` (${lectures.length})` : ""}</h3>
-            {lecturesError && <Button variant="outline" size="sm" onClick={() => refetchLectures()}><RefreshCcw className="size-4 mr-1" /> Retry</Button>}
+            <h3 className="text-xl font-bold">Subjects, Chapters & Lectures{lectureCount ? ` (${lectureCount})` : ""}</h3>
+            {curriculumError && <Button variant="outline" size="sm" onClick={() => refetchCurriculum()}><RefreshCcw className="size-4 mr-1" /> Retry</Button>}
           </div>
 
           {!hasAccess && !isAdmin && (
@@ -301,16 +301,22 @@ function BatchDetail() {
             </div>
           )}
 
-          {lecturesLoading ? (
+          {curriculumLoading || curriculumFetching ? (
             <div className="space-y-2">
+              <p className="text-sm font-semibold text-muted-foreground">Loading Curriculum...</p>
               <Skeleton className="h-12 w-full" />
               <Skeleton className="h-16 w-full" />
               <Skeleton className="h-16 w-full" />
             </div>
-          ) : lecturesError ? (
+          ) : curriculumError ? (
             <div className="bg-card border border-border rounded-xl p-5 text-center space-y-2">
-              <p className="font-semibold">Lectures could not load</p>
-              <p className="text-sm text-muted-foreground">{(lecturesErrorInfo as Error | undefined)?.message ?? "Please retry."}</p>
+              <p className="font-semibold">Curriculum could not load</p>
+              <p className="text-sm text-muted-foreground">{(curriculumErrorInfo as Error | undefined)?.message ?? "Please retry."}</p>
+              <Button variant="outline" size="sm" onClick={() => refetchCurriculum()}><RefreshCcw className="size-4 mr-1" /> Retry</Button>
+            </div>
+          ) : subjects.length === 0 ? (
+            <div className="bg-card border border-border rounded-xl p-6 text-center text-sm text-muted-foreground">
+              No Chapters Available Yet
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-4">
@@ -334,14 +340,14 @@ function BatchDetail() {
                 <div className="flex gap-2 overflow-x-auto pb-1">
                   {(activeSubject?.chapters ?? []).map((chapter) => (
                     <button
-                      key={chapter.name}
+                      key={chapter.id}
                       type="button"
-                      onClick={() => setSelectedChapter(chapter.name)}
+                      onClick={() => setSelectedChapter(chapter.id)}
                       className={`shrink-0 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
-                        selectedChapter === chapter.name ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted"
+                        selectedChapter === chapter.id ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted"
                       }`}
                     >
-                      {chapter.name} <span className="opacity-75">({chapter.lectures.length})</span>
+                      {chapter.title} <span className="opacity-75">({chapter.lectures.length})</span>
                     </button>
                   ))}
                 </div>
