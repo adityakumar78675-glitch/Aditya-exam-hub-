@@ -348,7 +348,78 @@ function LecturesAdmin() {
   );
 }
 
-function LectureDialog({ batchId, initial, onSaved, trigger }: any) {
+function SubjectDialog({ batchId, initial, onSaved, trigger }: any) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ name: "", icon: "", sort_order: 0 });
+
+  useEffect(() => {
+    if (open) setForm(initial ? { name: initial.name ?? "", icon: initial.icon ?? "", sort_order: initial.sort_order ?? 0 } : { name: "", icon: "", sort_order: 0 });
+  }, [open, initial]);
+
+  async function save() {
+    if (!form.name.trim()) { toast.error("Subject name required"); return; }
+    const payload = { batch_id: batchId, name: form.name.trim(), icon: form.icon.trim() || null, sort_order: Number(form.sort_order) || 0 };
+    const { error } = initial
+      ? await supabase.from("subjects").update(payload).eq("id", initial.id)
+      : await supabase.from("subjects").insert(payload);
+    if (error) { toast.error(error.message); return; }
+    toast.success(initial ? "Subject updated" : "Subject added");
+    setOpen(false);
+    onSaved?.();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{trigger ?? <Button><Plus className="size-4 mr-1" /> Add Subject</Button>}</DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>{initial ? "Edit subject" : "Add subject"}</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Physics" /></div>
+          <div><Label>Icon</Label><Input value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} placeholder="Optional emoji or URL" /></div>
+          <div><Label>Order</Label><Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: Number(e.target.value) })} /></div>
+        </div>
+        <DialogFooter><Button onClick={save}>Save</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ChapterDialog({ subjectId, initial, onSaved, trigger }: any) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ title: "", sort_order: 0 });
+
+  useEffect(() => {
+    if (open) setForm(initial ? { title: initial.title ?? "", sort_order: initial.sort_order ?? 0 } : { title: "", sort_order: 0 });
+  }, [open, initial]);
+
+  async function save() {
+    if (!form.title.trim()) { toast.error("Chapter title required"); return; }
+    const payload = { subject_id: subjectId, title: form.title.trim(), sort_order: Number(form.sort_order) || 0 };
+    const { error } = initial
+      ? await supabase.from("chapters").update(payload).eq("id", initial.id)
+      : await supabase.from("chapters").insert(payload);
+    if (error) { toast.error(error.message); return; }
+    toast.success(initial ? "Chapter updated" : "Chapter added");
+    setOpen(false);
+    onSaved?.();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{trigger ?? <Button size="sm"><Plus className="size-4 mr-1" /> Add Chapter</Button>}</DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader><DialogTitle>{initial ? "Edit chapter" : "Add chapter"}</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div><Label>Title</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Electric Charges and Fields" /></div>
+          <div><Label>Order</Label><Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: Number(e.target.value) })} /></div>
+        </div>
+        <DialogFooter><Button onClick={save}>Save</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function LectureDialog({ batchId, subjectId, chapterId, initial, onSaved, trigger }: any) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<any>({ title: "", description: "", video_url: "", thumbnail_url: "", duration_minutes: 0, order_index: 0, is_live: false, is_free: false, scheduled_at: "" });
   const [materials, setMaterials] = useState<any[]>([]);
