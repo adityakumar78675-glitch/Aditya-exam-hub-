@@ -204,12 +204,13 @@ function BatchDetail() {
 
   useEffect(() => {
     if (!activeSubject) return;
-    if (!selectedChapter || !activeSubject.chapters.some((chapter) => chapter.name === selectedChapter)) {
-      setSelectedChapter(activeSubject.chapters[0]?.name ?? "");
+    if (!selectedChapter || !activeSubject.chapters.some((chapter) => chapter.id === selectedChapter)) {
+      setSelectedChapter(activeSubject.chapters[0]?.id ?? "");
     }
   }, [activeSubject, selectedChapter]);
 
-  const activeChapter = activeSubject?.chapters.find((chapter) => chapter.name === selectedChapter) ?? activeSubject?.chapters[0];
+  const activeChapter = activeSubject?.chapters.find((chapter) => chapter.id === selectedChapter) ?? activeSubject?.chapters[0];
+  const lectureCount = subjects.reduce((total, subject) => total + subject.chapters.reduce((sum, chapter) => sum + chapter.lectures.length, 0), 0);
 
   useEffect(() => {
     if (batch && hasAccess) console.log("Opening Batch");
@@ -218,7 +219,7 @@ function BatchDetail() {
   const retryAll = () => {
     refetchBatch();
     refetchEnrollment();
-    refetchLectures();
+    refetchCurriculum();
   };
 
   if (batchLoading || enrollLoading) {
