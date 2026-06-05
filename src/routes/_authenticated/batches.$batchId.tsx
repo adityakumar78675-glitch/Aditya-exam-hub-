@@ -332,7 +332,8 @@ function BatchDetail() {
                 </div>
               )}
 
-              {/* Lectures */}
+              {/* Lectures — inline only for legacy uncategorized */}
+              {activeSubject?.id === UNCATEGORIZED && (
               <div className="space-y-2">
                 {(activeChapter?.lectures ?? []).map((l: any) => {
                   const lectureUnlocked = hasAccess || l.is_free;
