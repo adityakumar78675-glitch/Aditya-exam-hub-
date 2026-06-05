@@ -25,6 +25,7 @@ import { Route as ApiPublicInitAdminRouteImport } from './routes/api/public/init
 import { Route as AuthenticatedLecturesLectureIdRouteImport } from './routes/_authenticated/lectures.$lectureId'
 import { Route as AuthenticatedBatchesBatchIdRouteImport } from './routes/_authenticated/batches.$batchId'
 import { Route as AuthenticatedBatchesBatchIdSubjectsSubjectIdRouteImport } from './routes/_authenticated/batches.$batchId.subjects.$subjectId'
+import { Route as AuthenticatedBatchesBatchIdChaptersChapterIdRouteImport } from './routes/_authenticated/batches.$batchId.chapters.$chapterId'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -108,6 +109,12 @@ const AuthenticatedBatchesBatchIdSubjectsSubjectIdRoute =
     path: '/subjects/$subjectId',
     getParentRoute: () => AuthenticatedBatchesBatchIdRoute,
   } as any)
+const AuthenticatedBatchesBatchIdChaptersChapterIdRoute =
+  AuthenticatedBatchesBatchIdChaptersChapterIdRouteImport.update({
+    id: '/chapters/$chapterId',
+    path: '/chapters/$chapterId',
+    getParentRoute: () => AuthenticatedBatchesBatchIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -124,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/batches/$batchId': typeof AuthenticatedBatchesBatchIdRouteWithChildren
   '/lectures/$lectureId': typeof AuthenticatedLecturesLectureIdRoute
   '/api/public/init-admin': typeof ApiPublicInitAdminRoute
+  '/batches/$batchId/chapters/$chapterId': typeof AuthenticatedBatchesBatchIdChaptersChapterIdRoute
   '/batches/$batchId/subjects/$subjectId': typeof AuthenticatedBatchesBatchIdSubjectsSubjectIdRoute
 }
 export interface FileRoutesByTo {
@@ -141,6 +149,7 @@ export interface FileRoutesByTo {
   '/batches/$batchId': typeof AuthenticatedBatchesBatchIdRouteWithChildren
   '/lectures/$lectureId': typeof AuthenticatedLecturesLectureIdRoute
   '/api/public/init-admin': typeof ApiPublicInitAdminRoute
+  '/batches/$batchId/chapters/$chapterId': typeof AuthenticatedBatchesBatchIdChaptersChapterIdRoute
   '/batches/$batchId/subjects/$subjectId': typeof AuthenticatedBatchesBatchIdSubjectsSubjectIdRoute
 }
 export interface FileRoutesById {
@@ -160,6 +169,7 @@ export interface FileRoutesById {
   '/_authenticated/batches/$batchId': typeof AuthenticatedBatchesBatchIdRouteWithChildren
   '/_authenticated/lectures/$lectureId': typeof AuthenticatedLecturesLectureIdRoute
   '/api/public/init-admin': typeof ApiPublicInitAdminRoute
+  '/_authenticated/batches/$batchId/chapters/$chapterId': typeof AuthenticatedBatchesBatchIdChaptersChapterIdRoute
   '/_authenticated/batches/$batchId/subjects/$subjectId': typeof AuthenticatedBatchesBatchIdSubjectsSubjectIdRoute
 }
 export interface FileRouteTypes {
@@ -179,6 +189,7 @@ export interface FileRouteTypes {
     | '/batches/$batchId'
     | '/lectures/$lectureId'
     | '/api/public/init-admin'
+    | '/batches/$batchId/chapters/$chapterId'
     | '/batches/$batchId/subjects/$subjectId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -196,6 +207,7 @@ export interface FileRouteTypes {
     | '/batches/$batchId'
     | '/lectures/$lectureId'
     | '/api/public/init-admin'
+    | '/batches/$batchId/chapters/$chapterId'
     | '/batches/$batchId/subjects/$subjectId'
   id:
     | '__root__'
@@ -214,6 +226,7 @@ export interface FileRouteTypes {
     | '/_authenticated/batches/$batchId'
     | '/_authenticated/lectures/$lectureId'
     | '/api/public/init-admin'
+    | '/_authenticated/batches/$batchId/chapters/$chapterId'
     | '/_authenticated/batches/$batchId/subjects/$subjectId'
   fileRoutesById: FileRoutesById
 }
@@ -341,15 +354,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBatchesBatchIdSubjectsSubjectIdRouteImport
       parentRoute: typeof AuthenticatedBatchesBatchIdRoute
     }
+    '/_authenticated/batches/$batchId/chapters/$chapterId': {
+      id: '/_authenticated/batches/$batchId/chapters/$chapterId'
+      path: '/chapters/$chapterId'
+      fullPath: '/batches/$batchId/chapters/$chapterId'
+      preLoaderRoute: typeof AuthenticatedBatchesBatchIdChaptersChapterIdRouteImport
+      parentRoute: typeof AuthenticatedBatchesBatchIdRoute
+    }
   }
 }
 
 interface AuthenticatedBatchesBatchIdRouteChildren {
+  AuthenticatedBatchesBatchIdChaptersChapterIdRoute: typeof AuthenticatedBatchesBatchIdChaptersChapterIdRoute
   AuthenticatedBatchesBatchIdSubjectsSubjectIdRoute: typeof AuthenticatedBatchesBatchIdSubjectsSubjectIdRoute
 }
 
 const AuthenticatedBatchesBatchIdRouteChildren: AuthenticatedBatchesBatchIdRouteChildren =
   {
+    AuthenticatedBatchesBatchIdChaptersChapterIdRoute:
+      AuthenticatedBatchesBatchIdChaptersChapterIdRoute,
     AuthenticatedBatchesBatchIdSubjectsSubjectIdRoute:
       AuthenticatedBatchesBatchIdSubjectsSubjectIdRoute,
   }

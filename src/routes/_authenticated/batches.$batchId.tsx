@@ -287,17 +287,22 @@ function BatchDetail() {
             </div>
           ) : (
             <>
-              {/* Subject cards (PW-style grid) */}
+              {/* Subject cards (PW-style grid) — tap to open chapter list */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 {filteredTree.map((s) => {
                   const totalLec = s.chapters.reduce((t, c) => t + c.lectures.length, 0);
                   const isActive = selectedSubjectId === s.id;
+                  const isUncat = s.id === UNCATEGORIZED;
+                  const handleClick = () => {
+                    if (isUncat) setSelectedSubjectId(s.id);
+                    else navigate({ to: "/batches/$batchId/subjects/$subjectId", params: { batchId, subjectId: s.id } });
+                  };
                   return (
                     <button
                       key={s.id}
-                      onClick={() => setSelectedSubjectId(s.id)}
-                      className={`text-left rounded-2xl border p-4 transition-all ${
-                        isActive ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-card hover:border-primary/50"
+                      onClick={handleClick}
+                      className={`text-left rounded-2xl border p-4 transition-all active:scale-[0.99] ${
+                        isActive && isUncat ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-card hover:border-primary/50 hover:shadow-sm"
                       }`}
                     >
                       <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-2 text-lg">
