@@ -36,7 +36,7 @@ function AdminPage() {
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="batches">Batches</TabsTrigger>
-            <TabsTrigger value="lectures">Lectures</TabsTrigger>
+            <TabsTrigger value="lectures">Curriculum</TabsTrigger>
             <TabsTrigger value="live">Live</TabsTrigger>
             <TabsTrigger value="banners">Banners</TabsTrigger>
             <TabsTrigger value="students">Students</TabsTrigger>
@@ -208,6 +208,9 @@ function BatchDialog({ initial, onSaved, trigger }: any) {
   );
 }
 
+type AdminSubject = { id: string; batch_id: string; name: string; sort_order: number; icon: string | null; chapters?: AdminChapter[] };
+type AdminChapter = { id: string; subject_id: string; title: string; sort_order: number };
+
 function LecturesAdmin() {
   const qc = useQueryClient();
   const [batchId, setBatchId] = useState<string>("");
@@ -219,15 +222,62 @@ function LecturesAdmin() {
 
   useEffect(() => { if (!batchId && batches[0]) setBatchId(batches[0].id); }, [batches, batchId]);
 
-  const { data: lectures = [] } = useQuery({
-    queryKey: ["admin-lectures", batchId],
+  const { data: subjects = [] } = useQuery({
+    queryKey: ["admin-curriculum", batchId],
     enabled: !!batchId,
-    queryFn: async () => (await supabase.from("lectures").select("*, materials(*)").eq("batch_id", batchId).order("order_index")).data ?? [],
+    queryFn: async () => (await supabase
+      .from("subjects")
+      .select("id, batch_id, name, icon, sort_order, chapters(id, subject_id, title, sort_order)")
+      .eq("batch_id", batchId)
+      .order("sort_order", { ascending: true })
+      .order("sort_order", { referencedTable: "chapters", ascending: true })).data ?? [],
   });
 
-  const del = useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.from("lectures").delete().eq("id", id); if (error) throw error; },
-    onSuccess: () => { toast.success("Deleted"); qc.invalidateQueries({ queryKey: ["admin-lectures"] }); },
+  const { data: lectures = [] } = useQuery({
+    queryKey: ["admin-curriculum-lectures", batchId],
+    enabled: !!batchId,
+    queryFn: async () => (await supabase.from("lectures").select("*, materials(*)").eq("batch_id", batchId).order("order_index", { ascending: true })).data ?? [],
+  });
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["admin-curriculum"] });
+    qc.invalidateQueries({ queryKey: ["admin-curriculum-lectures"] });
+    qc.invalidateQueries({ queryKey: ["curriculum"] });
+  };
+
+  const deleteLecture = useMutation({
+    mutationFn: async (id: string) => {
+      await supabase.from("materials").delete().eq("lecture_id", id);
+      const { error } = await supabase.from("lectures").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Lecture deleted"); invalidate(); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const deleteChapter = useMutation({
+    mutationFn: async (id: string) => {
+      const lectureIds = lectures.filter((l: any) => l.chapter_id === id).map((l: any) => l.id);
+      if (lectureIds.length) await supabase.from("materials").delete().in("lecture_id", lectureIds);
+      await supabase.from("lectures").delete().eq("chapter_id", id);
+      const { error } = await supabase.from("chapters").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Chapter deleted"); invalidate(); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const deleteSubject = useMutation({
+    mutationFn: async (id: string) => {
+      const lectureIds = lectures.filter((l: any) => l.subject_id === id).map((l: any) => l.id);
+      if (lectureIds.length) await supabase.from("materials").delete().in("lecture_id", lectureIds);
+      await supabase.from("lectures").delete().eq("subject_id", id);
+      await supabase.from("chapters").delete().eq("subject_id", id);
+      const { error } = await supabase.from("subjects").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { toast.success("Subject deleted"); invalidate(); },
+    onError: (e: any) => toast.error(e.message),
   });
 
   return (
@@ -240,27 +290,59 @@ function LecturesAdmin() {
             <SelectContent>{batches.map((b: any) => <SelectItem key={b.id} value={b.id}>{b.title}</SelectItem>)}</SelectContent>
           </Select>
         </div>
-        {batchId && <LectureDialog batchId={batchId} onSaved={() => qc.invalidateQueries({ queryKey: ["admin-lectures"] })} />}
+        {batchId && <SubjectDialog batchId={batchId} onSaved={invalidate} />}
       </div>
-      <div className="space-y-2">
-        {lectures.map((l: any) => (
-          <div key={l.id} className="bg-card border border-border rounded-xl p-4 flex items-center gap-3">
-            <div className="flex-1">
-              <p className="font-semibold flex items-center gap-2">
-                {l.title}
-                {l.is_free && <span className="bg-accent/10 text-accent font-bold px-2 py-0.5 rounded uppercase text-[10px]">Free</span>}
-              </p>
-              <p className="text-xs text-muted-foreground">{l.is_live ? "Live" : "Recorded"} • {l.duration_minutes ?? 0} min • {l.materials?.length ?? 0} materials</p>
+      <div className="space-y-3">
+        {(subjects as AdminSubject[]).map((subject) => {
+          const chapters = (subject.chapters ?? []).slice().sort((a, b) => a.sort_order - b.sort_order);
+          return (
+            <div key={subject.id} className="bg-card border border-border rounded-2xl p-4 space-y-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex-1 min-w-[180px]">
+                  <p className="font-bold">{subject.name}</p>
+                  <p className="text-xs text-muted-foreground">{chapters.length} chapters • {lectures.filter((l: any) => l.subject_id === subject.id).length} lectures</p>
+                </div>
+                <ChapterDialog subjectId={subject.id} onSaved={invalidate} />
+                <SubjectDialog batchId={batchId} initial={subject} onSaved={invalidate} trigger={<Button size="sm" variant="ghost"><Pencil className="size-4" /></Button>} />
+                <Button size="sm" variant="ghost" onClick={() => { if (confirm("Delete this subject and its chapters/lectures?")) deleteSubject.mutate(subject.id); }}><Trash2 className="size-4 text-destructive" /></Button>
+              </div>
+              <div className="space-y-2 pl-0 md:pl-4">
+                {chapters.map((chapter) => {
+                  const chapterLectures = lectures.filter((l: any) => l.chapter_id === chapter.id);
+                  return (
+                    <div key={chapter.id} className="border border-border rounded-xl p-3 space-y-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex-1 min-w-[180px]">
+                          <p className="font-semibold">{chapter.title}</p>
+                          <p className="text-xs text-muted-foreground">{chapterLectures.length} lectures</p>
+                        </div>
+                        <LectureDialog batchId={batchId} subjectId={subject.id} chapterId={chapter.id} onSaved={invalidate} />
+                        <ChapterDialog subjectId={subject.id} initial={chapter} onSaved={invalidate} trigger={<Button size="sm" variant="ghost"><Pencil className="size-4" /></Button>} />
+                        <Button size="sm" variant="ghost" onClick={() => { if (confirm("Delete this chapter and its lectures?")) deleteChapter.mutate(chapter.id); }}><Trash2 className="size-4 text-destructive" /></Button>
+                      </div>
+                      <div className="space-y-2">
+                        {chapterLectures.map((l: any) => (
+                          <div key={l.id} className="bg-muted/40 rounded-lg p-3 flex items-center gap-3 flex-wrap">
+                            <div className="flex-1 min-w-[180px]">
+                              <p className="font-medium flex items-center gap-2 flex-wrap">{l.title}{l.is_free && <span className="bg-accent/10 text-accent font-bold px-2 py-0.5 rounded uppercase text-[10px]">Free</span>}</p>
+                              <p className="text-xs text-muted-foreground">{l.is_live ? "Live" : "Recorded"} • {l.duration_minutes ?? 0} min • {l.materials?.length ?? 0} materials</p>
+                            </div>
+                            <Link to="/lectures/$lectureId" params={{ lectureId: l.id }}><Button size="sm" variant="outline"><Play className="size-4 mr-1" /> Preview</Button></Link>
+                            <LectureDialog batchId={batchId} subjectId={subject.id} chapterId={chapter.id} initial={l} onSaved={invalidate} trigger={<Button size="sm" variant="ghost"><Pencil className="size-4" /></Button>} />
+                            <Button size="sm" variant="ghost" onClick={() => { if (confirm("Delete lecture?")) deleteLecture.mutate(l.id); }}><Trash2 className="size-4 text-destructive" /></Button>
+                          </div>
+                        ))}
+                        {chapterLectures.length === 0 && <p className="text-xs text-muted-foreground">No lectures in this chapter yet.</p>}
+                      </div>
+                    </div>
+                  );
+                })}
+                {chapters.length === 0 && <p className="text-sm text-muted-foreground">No Chapters Available Yet</p>}
+              </div>
             </div>
-            <Link to="/lectures/$lectureId" params={{ lectureId: l.id }}>
-              <Button size="sm" variant="outline"><Play className="size-4 mr-1" /> Preview</Button>
-            </Link>
-            <LectureDialog batchId={batchId} initial={l} onSaved={() => qc.invalidateQueries({ queryKey: ["admin-lectures"] })} trigger={<Button size="sm" variant="ghost"><Pencil className="size-4" /></Button>} />
-            <Button size="sm" variant="ghost" onClick={() => { if (confirm("Delete?")) del.mutate(l.id); }}><Trash2 className="size-4 text-destructive" /></Button>
-          </div>
-        ))}
-
-        {batchId && lectures.length === 0 && <p className="text-muted-foreground text-sm">No lectures yet.</p>}
+          );
+        })}
+        {batchId && subjects.length === 0 && <p className="text-muted-foreground text-sm">No Chapters Available Yet</p>}
       </div>
     </div>
   );
