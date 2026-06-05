@@ -12,6 +12,26 @@ export const Route = createFileRoute("/_authenticated/batches/$batchId")({ compo
 
 const LOAD_TIMEOUT_MS = 5000;
 
+type Material = { id: string; title: string; file_url: string; file_type: string };
+type Lecture = {
+  id: string;
+  batch_id: string;
+  subject_id: string | null;
+  chapter_id: string | null;
+  title: string;
+  description: string | null;
+  video_url: string | null;
+  thumbnail_url: string | null;
+  duration_minutes: number | null;
+  is_free: boolean;
+  is_live: boolean;
+  scheduled_at: string | null;
+  order_index: number;
+  materials?: Material[];
+};
+type Chapter = { id: string; subject_id: string; title: string; sort_order: number; lectures: Lecture[] };
+type Subject = { id: string; name: string; sort_order: number; chapters: Chapter[] };
+
 function withTimeout<T>(task: PromiseLike<T>, label: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   return Promise.race([
@@ -22,14 +42,6 @@ function withTimeout<T>(task: PromiseLike<T>, label: string): Promise<T> {
   ]).finally(() => {
     if (timer) clearTimeout(timer);
   });
-}
-
-function getLectureSubject(lecture: any, fallback: string) {
-  return lecture.subject || lecture.subject_name || fallback || "All Lectures";
-}
-
-function getLectureChapter(lecture: any) {
-  return lecture.chapter_title || lecture.chapter || "Lectures";
 }
 
 function ErrorState({ title, message, onRetry }: { title: string; message: string; onRetry: () => void }) {
