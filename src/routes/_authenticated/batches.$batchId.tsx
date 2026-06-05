@@ -12,6 +12,26 @@ export const Route = createFileRoute("/_authenticated/batches/$batchId")({ compo
 
 const LOAD_TIMEOUT_MS = 5000;
 
+type Material = { id: string; title: string; file_url: string; file_type: string };
+type Lecture = {
+  id: string;
+  batch_id: string;
+  subject_id: string | null;
+  chapter_id: string | null;
+  title: string;
+  description: string | null;
+  video_url: string | null;
+  thumbnail_url: string | null;
+  duration_minutes: number | null;
+  is_free: boolean;
+  is_live: boolean;
+  scheduled_at: string | null;
+  order_index: number;
+  materials?: Material[];
+};
+type Chapter = { id: string; subject_id: string; title: string; sort_order: number; lectures: Lecture[] };
+type Subject = { id: string; name: string; sort_order: number; chapters: Chapter[] };
+
 function withTimeout<T>(task: PromiseLike<T>, label: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   return Promise.race([
@@ -22,14 +42,6 @@ function withTimeout<T>(task: PromiseLike<T>, label: string): Promise<T> {
   ]).finally(() => {
     if (timer) clearTimeout(timer);
   });
-}
-
-function getLectureSubject(lecture: any, fallback: string) {
-  return lecture.subject || lecture.subject_name || fallback || "All Lectures";
-}
-
-function getLectureChapter(lecture: any) {
-  return lecture.chapter_title || lecture.chapter || "Lectures";
 }
 
 function ErrorState({ title, message, onRetry }: { title: string; message: string; onRetry: () => void }) {
@@ -99,19 +111,70 @@ function BatchDetail() {
   console.log("Purchased:", hasAccess);
   console.log("[BatchDetail] userId:", user?.id, "isAdmin:", isAdmin, "hasAccess:", hasAccess);
 
-  const { data: lectures = [], isLoading: lecturesLoading, isError: lecturesError, error: lecturesErrorInfo, refetch: refetchLectures } = useQuery({
-    queryKey: ["lectures", batchId],
+  const { data: curriculum = [], isLoading: curriculumLoading, isFetching: curriculumFetching, isError: curriculumError, error: curriculumErrorInfo, refetch: refetchCurriculum } = useQuery({
+    queryKey: ["curriculum", batchId],
     enabled: !!batch,
     queryFn: async () => {
-      const { data, error } = await withTimeout(supabase
-        .from("lectures")
-        .select("*, materials(*)")
-        .eq("batch_id", batchId)
-        .order("order_index"), "Lecture loading");
-      if (error) throw error;
-      return data ?? [];
+      const [subjectsResult, lecturesResult] = await withTimeout(Promise.all([
+        supabase
+          .from("subjects")
+          .select("id, name, sort_order, chapters(id, subject_id, title, sort_order)")
+          .eq("batch_id", batchId)
+          .order("sort_order", { ascending: true })
+          .order("sort_order", { referencedTable: "chapters", ascending: true }),
+        supabase
+          .from("lectures")
+          .select("*, materials(*)")
+          .eq("batch_id", batchId)
+          .order("order_index", { ascending: true }),
+      ]), "Curriculum loading");
+      if (subjectsResult.error) throw subjectsResult.error;
+      if (lecturesResult.error) throw lecturesResult.error;
+
+      const lecturesByChapter = new Map<string, Lecture[]>();
+      const fallbackBySubject = new Map<string, Lecture[]>();
+      ((lecturesResult.data ?? []) as Lecture[]).forEach((lecture) => {
+        if (lecture.chapter_id) {
+          const items = lecturesByChapter.get(lecture.chapter_id) ?? [];
+          items.push(lecture);
+          lecturesByChapter.set(lecture.chapter_id, items);
+          return;
+        }
+        if (lecture.subject_id) {
+          const items = fallbackBySubject.get(lecture.subject_id) ?? [];
+          items.push(lecture);
+          fallbackBySubject.set(lecture.subject_id, items);
+        }
+      });
+
+      const structured = ((subjectsResult.data ?? []) as Array<Omit<Subject, "chapters"> & { chapters?: Chapter[] }>).map((subject) => {
+        const chapters = (subject.chapters ?? [])
+          .slice()
+          .sort((a, b) => (a.sort_order - b.sort_order) || a.title.localeCompare(b.title))
+          .map((chapter) => ({ ...chapter, lectures: lecturesByChapter.get(chapter.id) ?? [] }));
+        const fallbackLectures = fallbackBySubject.get(subject.id) ?? [];
+        return {
+          id: subject.id,
+          name: subject.name,
+          sort_order: subject.sort_order,
+          chapters: chapters.length > 0 || fallbackLectures.length === 0
+            ? chapters
+            : [{ id: `fallback-${subject.id}`, subject_id: subject.id, title: "Lectures", sort_order: 0, lectures: fallbackLectures }],
+        };
+      });
+
+      if (structured.length > 0) return structured;
+
+      const looseLectures = ((lecturesResult.data ?? []) as Lecture[]).filter((lecture) => !lecture.subject_id && !lecture.chapter_id);
+      if (looseLectures.length > 0) {
+        return [{ id: "fallback-all", name: "All Lectures", sort_order: 0, chapters: [{ id: "fallback-chapter", subject_id: "fallback-all", title: "Lectures", sort_order: 0, lectures: looseLectures }] }];
+      }
+
+      return [];
     },
-    retry: 1,
+    retry: 2,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const enroll = useMutation({
@@ -128,29 +191,7 @@ function BatchDetail() {
     onError: (e: any) => toast.error(e.message),
   });
 
-  const subjects = useMemo(() => {
-    const names = new Set<string>();
-    (batch?.subjects ?? []).forEach((subject: string) => {
-      if (subject?.trim()) names.add(subject.trim());
-    });
-    lectures.forEach((lecture: any) => names.add(getLectureSubject(lecture, batch?.subjects?.[0] ?? "All Lectures")));
-    if (names.size === 0) names.add("All Lectures");
-
-    return Array.from(names).map((subjectName) => {
-      const subjectLectures = lectures.filter((lecture: any) => getLectureSubject(lecture, subjectName) === subjectName);
-      const chapterNames = new Set<string>();
-      subjectLectures.forEach((lecture: any) => chapterNames.add(getLectureChapter(lecture)));
-      if (chapterNames.size === 0) chapterNames.add("Lectures");
-
-      return {
-        name: subjectName,
-        chapters: Array.from(chapterNames).map((chapterName) => ({
-          name: chapterName,
-          lectures: subjectLectures.filter((lecture: any) => getLectureChapter(lecture) === chapterName),
-        })),
-      };
-    });
-  }, [batch, lectures]);
+  const subjects = useMemo(() => curriculum, [curriculum]);
 
   useEffect(() => {
     if (!selectedSubject && subjects[0]) setSelectedSubject(subjects[0].name);
@@ -163,12 +204,13 @@ function BatchDetail() {
 
   useEffect(() => {
     if (!activeSubject) return;
-    if (!selectedChapter || !activeSubject.chapters.some((chapter) => chapter.name === selectedChapter)) {
-      setSelectedChapter(activeSubject.chapters[0]?.name ?? "");
+    if (!selectedChapter || !activeSubject.chapters.some((chapter) => chapter.id === selectedChapter)) {
+      setSelectedChapter(activeSubject.chapters[0]?.id ?? "");
     }
   }, [activeSubject, selectedChapter]);
 
-  const activeChapter = activeSubject?.chapters.find((chapter) => chapter.name === selectedChapter) ?? activeSubject?.chapters[0];
+  const activeChapter = activeSubject?.chapters.find((chapter) => chapter.id === selectedChapter) ?? activeSubject?.chapters[0];
+  const lectureCount = subjects.reduce((total, subject) => total + subject.chapters.reduce((sum, chapter) => sum + chapter.lectures.length, 0), 0);
 
   useEffect(() => {
     if (batch && hasAccess) console.log("Opening Batch");
@@ -177,7 +219,7 @@ function BatchDetail() {
   const retryAll = () => {
     refetchBatch();
     refetchEnrollment();
-    refetchLectures();
+    refetchCurriculum();
   };
 
   if (batchLoading || enrollLoading) {
@@ -247,8 +289,8 @@ function BatchDetail() {
 
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <h3 className="text-xl font-bold">Subjects, Chapters & Lectures{lectures.length ? ` (${lectures.length})` : ""}</h3>
-            {lecturesError && <Button variant="outline" size="sm" onClick={() => refetchLectures()}><RefreshCcw className="size-4 mr-1" /> Retry</Button>}
+            <h3 className="text-xl font-bold">Subjects, Chapters & Lectures{lectureCount ? ` (${lectureCount})` : ""}</h3>
+            {curriculumError && <Button variant="outline" size="sm" onClick={() => refetchCurriculum()}><RefreshCcw className="size-4 mr-1" /> Retry</Button>}
           </div>
 
           {!hasAccess && !isAdmin && (
@@ -259,16 +301,22 @@ function BatchDetail() {
             </div>
           )}
 
-          {lecturesLoading ? (
+          {curriculumLoading || curriculumFetching ? (
             <div className="space-y-2">
+              <p className="text-sm font-semibold text-muted-foreground">Loading Curriculum...</p>
               <Skeleton className="h-12 w-full" />
               <Skeleton className="h-16 w-full" />
               <Skeleton className="h-16 w-full" />
             </div>
-          ) : lecturesError ? (
+          ) : curriculumError ? (
             <div className="bg-card border border-border rounded-xl p-5 text-center space-y-2">
-              <p className="font-semibold">Lectures could not load</p>
-              <p className="text-sm text-muted-foreground">{(lecturesErrorInfo as Error | undefined)?.message ?? "Please retry."}</p>
+              <p className="font-semibold">Curriculum could not load</p>
+              <p className="text-sm text-muted-foreground">{(curriculumErrorInfo as Error | undefined)?.message ?? "Please retry."}</p>
+              <Button variant="outline" size="sm" onClick={() => refetchCurriculum()}><RefreshCcw className="size-4 mr-1" /> Retry</Button>
+            </div>
+          ) : subjects.length === 0 ? (
+            <div className="bg-card border border-border rounded-xl p-6 text-center text-sm text-muted-foreground">
+              No Chapters Available Yet
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-4">
@@ -292,14 +340,14 @@ function BatchDetail() {
                 <div className="flex gap-2 overflow-x-auto pb-1">
                   {(activeSubject?.chapters ?? []).map((chapter) => (
                     <button
-                      key={chapter.name}
+                      key={chapter.id}
                       type="button"
-                      onClick={() => setSelectedChapter(chapter.name)}
+                      onClick={() => setSelectedChapter(chapter.id)}
                       className={`shrink-0 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
-                        selectedChapter === chapter.name ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted"
+                        selectedChapter === chapter.id ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted"
                       }`}
                     >
-                      {chapter.name} <span className="opacity-75">({chapter.lectures.length})</span>
+                      {chapter.title} <span className="opacity-75">({chapter.lectures.length})</span>
                     </button>
                   ))}
                 </div>

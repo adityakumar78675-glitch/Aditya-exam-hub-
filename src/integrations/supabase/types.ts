@@ -59,6 +59,41 @@ export type Database = {
         }
         Relationships: []
       }
+      chapters: {
+        Row: {
+          created_at: string
+          id: string
+          sort_order: number
+          subject_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          sort_order?: number
+          subject_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          sort_order?: number
+          subject_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chapters_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       enrollments: {
         Row: {
           batch_id: string
@@ -171,6 +206,7 @@ export type Database = {
       lectures: {
         Row: {
           batch_id: string
+          chapter_id: string | null
           created_at: string
           description: string | null
           duration_minutes: number | null
@@ -179,6 +215,7 @@ export type Database = {
           is_live: boolean
           order_index: number
           scheduled_at: string | null
+          subject_id: string | null
           thumbnail_url: string | null
           title: string
           updated_at: string
@@ -186,6 +223,7 @@ export type Database = {
         }
         Insert: {
           batch_id: string
+          chapter_id?: string | null
           created_at?: string
           description?: string | null
           duration_minutes?: number | null
@@ -194,6 +232,7 @@ export type Database = {
           is_live?: boolean
           order_index?: number
           scheduled_at?: string | null
+          subject_id?: string | null
           thumbnail_url?: string | null
           title: string
           updated_at?: string
@@ -201,6 +240,7 @@ export type Database = {
         }
         Update: {
           batch_id?: string
+          chapter_id?: string | null
           created_at?: string
           description?: string | null
           duration_minutes?: number | null
@@ -209,6 +249,7 @@ export type Database = {
           is_live?: boolean
           order_index?: number
           scheduled_at?: string | null
+          subject_id?: string | null
           thumbnail_url?: string | null
           title?: string
           updated_at?: string
@@ -220,6 +261,20 @@ export type Database = {
             columns: ["batch_id"]
             isOneToOne: false
             referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lectures_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "chapters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lectures_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
             referencedColumns: ["id"]
           },
         ]
@@ -336,6 +391,44 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      subjects: {
+        Row: {
+          batch_id: string
+          created_at: string
+          icon: string | null
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          batch_id: string
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          batch_id?: string
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subjects_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
