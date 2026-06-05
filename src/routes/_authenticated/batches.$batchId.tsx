@@ -382,6 +382,7 @@ function BatchDetail() {
                   </div>
                 )}
               </div>
+              )}
             </>
           )}
         </div>
