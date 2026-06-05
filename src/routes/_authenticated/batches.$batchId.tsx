@@ -315,8 +315,8 @@ function BatchDetail() {
                 })}
               </div>
 
-              {/* Chapter chips */}
-              {activeSubject && activeSubject.chapters.length > 0 && (
+              {/* Chapter chips — only for legacy uncategorized lectures (inline view) */}
+              {activeSubject?.id === UNCATEGORIZED && activeSubject.chapters.length > 0 && (
                 <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
                   {activeSubject.chapters.map((c) => (
                     <button
