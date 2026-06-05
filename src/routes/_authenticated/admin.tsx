@@ -440,6 +440,8 @@ function LectureDialog({ batchId, subjectId, chapterId, initial, onSaved, trigge
     if (!form.title) { toast.error("Title required"); return; }
     const payload = {
       batch_id: batchId,
+      subject_id: subjectId,
+      chapter_id: chapterId,
       title: form.title,
       description: form.description,
       video_url: form.video_url || null,
