@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/auth";
-import { Home, BookOpen, Video, Trophy, User, LogOut, Shield, MessagesSquare } from "lucide-react";
+import { Home, BookOpen, Video, Trophy, User, LogOut, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated")({ component: AuthLayout });
@@ -24,7 +24,6 @@ function AuthLayout() {
     { to: "/batches", label: "Browse Batches", icon: BookOpen },
     { to: "/live", label: "Live Classes", icon: Video },
     { to: "/tests", label: "Practice Tests", icon: Trophy },
-    { to: "/community", label: "Community", icon: MessagesSquare },
     { to: "/profile", label: "Profile", icon: User },
   ];
 

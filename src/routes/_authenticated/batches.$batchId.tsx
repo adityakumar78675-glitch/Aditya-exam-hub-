@@ -407,59 +407,7 @@ function BatchDetail() {
             </div>
           )}
         </div>
-
-        {hasAccess && <ExtraNotesSection batchId={batchId} />}
       </div>
     </div>
   );
 }
-
-function ExtraNotesSection({ batchId }: { batchId: string }) {
-  const { data: notes = [], isLoading } = useQuery({
-    queryKey: ["extra-notes", batchId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("extra_notes")
-        .select("*")
-        .eq("batch_id", batchId)
-        .order("sort_order", { ascending: true })
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <FileText className="size-5 text-accent" />
-        <h3 className="text-xl font-bold">Extra Notes</h3>
-        <span className="text-xs text-muted-foreground">PDFs, handwritten notes, important questions</span>
-      </div>
-      {isLoading ? (
-        <Skeleton className="h-20 w-full" />
-      ) : notes.length === 0 ? (
-        <div className="bg-card border border-dashed border-border rounded-xl p-6 text-center text-sm text-muted-foreground">
-          No extra notes uploaded yet.
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {notes.map((n: any) => (
-            <div key={n.id} className="bg-card border border-border rounded-xl p-4 flex items-start gap-3">
-              <FileText className="size-5 text-primary mt-0.5 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold truncate">{n.title}</p>
-                <p className="text-[10px] uppercase text-muted-foreground font-bold">{n.category}</p>
-              </div>
-              <div className="flex gap-2">
-                <Button asChild size="sm" variant="outline"><a href={n.pdf_url} target="_blank" rel="noreferrer">View</a></Button>
-                <Button asChild size="sm"><a href={n.pdf_url} download target="_blank" rel="noreferrer">Download</a></Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-

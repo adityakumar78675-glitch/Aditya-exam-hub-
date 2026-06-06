@@ -33,24 +33,20 @@ function AdminPage() {
       </header>
       <div className="p-8 max-w-6xl mx-auto w-full">
         <Tabs defaultValue="overview">
-          <TabsList className="flex flex-wrap h-auto">
+          <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="batches">Batches</TabsTrigger>
             <TabsTrigger value="lectures">Curriculum</TabsTrigger>
-            <TabsTrigger value="notes">Extra Notes</TabsTrigger>
             <TabsTrigger value="live">Live</TabsTrigger>
             <TabsTrigger value="banners">Banners</TabsTrigger>
             <TabsTrigger value="students">Students</TabsTrigger>
-            <TabsTrigger value="community">Community</TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="mt-6"><Overview /></TabsContent>
           <TabsContent value="batches" className="mt-6"><BatchesAdmin /></TabsContent>
           <TabsContent value="lectures" className="mt-6"><LecturesAdmin /></TabsContent>
-          <TabsContent value="notes" className="mt-6"><ExtraNotesAdmin /></TabsContent>
           <TabsContent value="live" className="mt-6"><LiveAdmin /></TabsContent>
           <TabsContent value="banners" className="mt-6"><BannersAdmin /></TabsContent>
           <TabsContent value="students" className="mt-6"><StudentsAdmin /></TabsContent>
-          <TabsContent value="community" className="mt-6"><CommunityAdmin /></TabsContent>
         </Tabs>
       </div>
     </div>
@@ -531,43 +527,22 @@ function StudentsAdmin() {
   const qc = useQueryClient();
   const { data: students = [] } = useQuery({
     queryKey: ["admin-students"],
-    queryFn: async () => {
-      const [p, e, m] = await Promise.all([
-        supabase.from("profiles").select("*").order("created_at", { ascending: false }),
-        supabase.from("enrollments").select("student_id, batch_id"),
-        supabase.from("community_messages").select("student_id"),
-      ]);
-      const enrollCount = new Map<string, number>();
-      (e.data ?? []).forEach((r: any) => enrollCount.set(r.student_id, (enrollCount.get(r.student_id) ?? 0) + 1));
-      const msgCount = new Map<string, number>();
-      (m.data ?? []).forEach((r: any) => msgCount.set(r.student_id, (msgCount.get(r.student_id) ?? 0) + 1));
-      return (p.data ?? []).map((s: any) => ({ ...s, batches: enrollCount.get(s.id) ?? 0, messages: msgCount.get(s.id) ?? 0 }));
-    },
+    queryFn: async () => (await supabase.from("profiles").select("*").order("created_at", { ascending: false })).data ?? [],
   });
 
-  const toggle = useMutation({
-    mutationFn: async ({ id, field, value }: { id: string; field: "blocked" | "community_blocked"; value: boolean }) => {
-      const update = field === "blocked" ? { blocked: value } : { community_blocked: value };
-      const { error } = await supabase.from("profiles").update(update).eq("id", id);
+  const toggleBlock = useMutation({
+    mutationFn: async ({ id, blocked }: any) => {
+      const { error } = await supabase.from("profiles").update({ blocked }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Updated"); qc.invalidateQueries({ queryKey: ["admin-students"] }); },
-    onError: (e: any) => toast.error(e.message),
   });
 
   return (
-    <div className="bg-card border border-border rounded-2xl overflow-x-auto">
-      <table className="w-full text-sm min-w-[800px]">
+    <div className="bg-card border border-border rounded-2xl overflow-hidden">
+      <table className="w-full text-sm">
         <thead className="bg-muted text-muted-foreground text-xs uppercase">
-          <tr>
-            <th className="text-left p-3">Name</th>
-            <th className="text-left p-3">Class</th>
-            <th className="text-left p-3">Phone</th>
-            <th className="text-left p-3">Batches</th>
-            <th className="text-left p-3">Msgs</th>
-            <th className="text-left p-3">Status</th>
-            <th className="p-3"></th>
-          </tr>
+          <tr><th className="text-left p-3">Name</th><th className="text-left p-3">Class</th><th className="text-left p-3">Phone</th><th className="text-left p-3">Status</th><th className="p-3"></th></tr>
         </thead>
         <tbody>
           {students.map((s: any) => (
@@ -575,161 +550,20 @@ function StudentsAdmin() {
               <td className="p-3 font-medium">{s.full_name || "—"}</td>
               <td className="p-3">{s.class_level ?? "—"}</td>
               <td className="p-3">{s.phone ?? "—"}</td>
-              <td className="p-3">{s.batches}</td>
-              <td className="p-3">{s.messages}</td>
-              <td className="p-3 space-x-1">
-                {s.blocked && <span className="text-destructive text-xs">Batch blocked</span>}
-                {s.community_blocked && <span className="text-destructive text-xs">Chat blocked</span>}
-                {!s.blocked && !s.community_blocked && <span className="text-accent text-xs">Active</span>}
-              </td>
-              <td className="p-3 text-right space-x-2 whitespace-nowrap">
-                <Button size="sm" variant="outline" onClick={() => toggle.mutate({ id: s.id, field: "blocked", value: !s.blocked })}>
-                  {s.blocked ? "Unblock" : "Block batch"}
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => toggle.mutate({ id: s.id, field: "community_blocked", value: !s.community_blocked })}>
-                  {s.community_blocked ? "Unblock chat" : "Block chat"}
+              <td className="p-3">{s.blocked ? <span className="text-destructive">Blocked</span> : <span className="text-accent">Active</span>}</td>
+              <td className="p-3 text-right">
+                <Button size="sm" variant="outline" onClick={() => toggleBlock.mutate({ id: s.id, blocked: !s.blocked })}>
+                  {s.blocked ? "Unblock" : "Block"}
                 </Button>
               </td>
             </tr>
           ))}
-          {students.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">No students yet</td></tr>}
+          {students.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">No students yet</td></tr>}
         </tbody>
       </table>
     </div>
   );
 }
-
-function ExtraNotesAdmin() {
-  const qc = useQueryClient();
-  const { data: batches = [] } = useQuery({
-    queryKey: ["admin-batches-list"],
-    queryFn: async () => (await supabase.from("batches").select("id, title").order("created_at", { ascending: false })).data ?? [],
-  });
-  const { data: notes = [] } = useQuery({
-    queryKey: ["admin-extra-notes"],
-    queryFn: async () => (await supabase.from("extra_notes").select("*").order("created_at", { ascending: false })).data ?? [],
-  });
-  const del = useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.from("extra_notes").delete().eq("id", id); if (error) throw error; },
-    onSuccess: () => { toast.success("Deleted"); qc.invalidateQueries({ queryKey: ["admin-extra-notes"] }); },
-  });
-  const titleOf = (id: string) => batches.find((b: any) => b.id === id)?.title ?? "—";
-  return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
-        <ExtraNoteDialog batches={batches} onSaved={() => qc.invalidateQueries({ queryKey: ["admin-extra-notes"] })} />
-      </div>
-      <div className="bg-card border border-border rounded-2xl overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-muted text-muted-foreground text-xs uppercase">
-            <tr><th className="text-left p-3">Title</th><th className="text-left p-3">Batch</th><th className="text-left p-3">Category</th><th className="p-3"></th></tr>
-          </thead>
-          <tbody>
-            {notes.map((n: any) => (
-              <tr key={n.id} className="border-t border-border">
-                <td className="p-3 font-medium"><a href={n.pdf_url} target="_blank" rel="noreferrer" className="hover:underline">{n.title}</a></td>
-                <td className="p-3">{titleOf(n.batch_id)}</td>
-                <td className="p-3">{n.category}</td>
-                <td className="p-3 text-right space-x-2">
-                  <ExtraNoteDialog batches={batches} initial={n} onSaved={() => qc.invalidateQueries({ queryKey: ["admin-extra-notes"] })}
-                    trigger={<Button size="sm" variant="outline"><Pencil className="size-4" /></Button>} />
-                  <Button size="sm" variant="outline" onClick={() => del.mutate(n.id)}><Trash2 className="size-4" /></Button>
-                </td>
-              </tr>
-            ))}
-            {notes.length === 0 && <tr><td colSpan={4} className="p-8 text-center text-muted-foreground">No notes yet</td></tr>}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
-function ExtraNoteDialog({ batches, initial, onSaved, trigger }: any) {
-  const [open, setOpen] = useState(false);
-  const [f, setF] = useState({
-    title: initial?.title ?? "",
-    batch_id: initial?.batch_id ?? "",
-    category: initial?.category ?? "notes",
-    pdf_url: initial?.pdf_url ?? "",
-    sort_order: initial?.sort_order ?? 0,
-  });
-  async function save() {
-    if (!f.title || !f.batch_id || !f.pdf_url) { toast.error("Title, batch and PDF URL required"); return; }
-    const payload = { ...f, sort_order: Number(f.sort_order) || 0 };
-    const { error } = initial
-      ? await supabase.from("extra_notes").update(payload).eq("id", initial.id)
-      : await supabase.from("extra_notes").insert(payload);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Saved"); setOpen(false); onSaved?.();
-  }
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger ?? <Button><Plus className="size-4 mr-1" /> Add Note</Button>}</DialogTrigger>
-      <DialogContent>
-        <DialogHeader><DialogTitle>{initial ? "Edit" : "Add"} Extra Note</DialogTitle></DialogHeader>
-        <div className="space-y-3">
-          <div><Label>Title</Label><Input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></div>
-          <div><Label>Batch</Label>
-            <Select value={f.batch_id} onValueChange={(v) => setF({ ...f, batch_id: v })}>
-              <SelectTrigger><SelectValue placeholder="Select batch" /></SelectTrigger>
-              <SelectContent>{batches.map((b: any) => <SelectItem key={b.id} value={b.id}>{b.title}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-          <div><Label>Category</Label>
-            <Select value={f.category} onValueChange={(v) => setF({ ...f, category: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="notes">Notes</SelectItem>
-                <SelectItem value="handwritten">Handwritten Notes</SelectItem>
-                <SelectItem value="formula">Formula Sheet</SelectItem>
-                <SelectItem value="important-questions">Important Questions</SelectItem>
-                <SelectItem value="dpp">DPP</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div><Label>PDF URL</Label><Input value={f.pdf_url} onChange={(e) => setF({ ...f, pdf_url: e.target.value })} /></div>
-          <div><Label>Sort order</Label><Input type="number" value={f.sort_order} onChange={(e) => setF({ ...f, sort_order: Number(e.target.value) })} /></div>
-        </div>
-        <DialogFooter><Button onClick={save}>Save</Button></DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function CommunityAdmin() {
-  const qc = useQueryClient();
-  const { data: messages = [] } = useQuery({
-    queryKey: ["admin-community"],
-    queryFn: async () => (await supabase.from("community_messages").select("*").order("created_at", { ascending: false }).limit(200)).data ?? [],
-  });
-  useEffect(() => {
-    const ch = supabase.channel("admin-community-room")
-      .on("postgres_changes", { event: "*", schema: "public", table: "community_messages" },
-        () => qc.invalidateQueries({ queryKey: ["admin-community"] }))
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [qc]);
-  const del = useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.from("community_messages").delete().eq("id", id); if (error) throw error; },
-    onSuccess: () => toast.success("Deleted"),
-  });
-  return (
-    <div className="bg-card border border-border rounded-2xl divide-y divide-border max-h-[70vh] overflow-y-auto">
-      {messages.length === 0 && <p className="p-8 text-center text-muted-foreground text-sm">No messages</p>}
-      {messages.map((m: any) => (
-        <div key={m.id} className="p-3 flex items-start gap-3">
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold text-primary">{m.student_name} <span className="text-muted-foreground font-normal ml-2">{new Date(m.created_at).toLocaleString()}</span></p>
-            <p className="text-sm whitespace-pre-wrap break-words">{m.message}</p>
-          </div>
-          <Button size="sm" variant="outline" onClick={() => del.mutate(m.id)}><Trash2 className="size-4" /></Button>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 
 function LiveAdmin() {
   const qc = useQueryClient();

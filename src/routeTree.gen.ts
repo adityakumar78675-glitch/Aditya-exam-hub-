@@ -19,7 +19,6 @@ import { Route as AuthenticatedTestsRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedLiveRouteImport } from './routes/_authenticated/live'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedCommunityRouteImport } from './routes/_authenticated/community'
 import { Route as AuthenticatedBatchesRouteImport } from './routes/_authenticated/batches'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedLecturesLectureIdRouteImport } from './routes/_authenticated/lectures.$lectureId'
@@ -74,11 +73,6 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedCommunityRoute = AuthenticatedCommunityRouteImport.update({
-  id: '/community',
-  path: '/community',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
 const AuthenticatedBatchesRoute = AuthenticatedBatchesRouteImport.update({
   id: '/batches',
   path: '/batches',
@@ -110,7 +104,6 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/batches': typeof AuthenticatedBatchesRouteWithChildren
-  '/community': typeof AuthenticatedCommunityRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/live': typeof AuthenticatedLiveRoute
   '/profile': typeof AuthenticatedProfileRoute
@@ -126,7 +119,6 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/batches': typeof AuthenticatedBatchesRouteWithChildren
-  '/community': typeof AuthenticatedCommunityRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/live': typeof AuthenticatedLiveRoute
   '/profile': typeof AuthenticatedProfileRoute
@@ -144,7 +136,6 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/batches': typeof AuthenticatedBatchesRouteWithChildren
-  '/_authenticated/community': typeof AuthenticatedCommunityRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/live': typeof AuthenticatedLiveRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
@@ -162,7 +153,6 @@ export interface FileRouteTypes {
     | '/signup'
     | '/admin'
     | '/batches'
-    | '/community'
     | '/dashboard'
     | '/live'
     | '/profile'
@@ -178,7 +168,6 @@ export interface FileRouteTypes {
     | '/signup'
     | '/admin'
     | '/batches'
-    | '/community'
     | '/dashboard'
     | '/live'
     | '/profile'
@@ -195,7 +184,6 @@ export interface FileRouteTypes {
     | '/signup'
     | '/_authenticated/admin'
     | '/_authenticated/batches'
-    | '/_authenticated/community'
     | '/_authenticated/dashboard'
     | '/_authenticated/live'
     | '/_authenticated/profile'
@@ -285,13 +273,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/community': {
-      id: '/_authenticated/community'
-      path: '/community'
-      fullPath: '/community'
-      preLoaderRoute: typeof AuthenticatedCommunityRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
     '/_authenticated/batches': {
       id: '/_authenticated/batches'
       path: '/batches'
@@ -337,7 +318,6 @@ const AuthenticatedBatchesRouteWithChildren =
 interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedBatchesRoute: typeof AuthenticatedBatchesRouteWithChildren
-  AuthenticatedCommunityRoute: typeof AuthenticatedCommunityRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedLiveRoute: typeof AuthenticatedLiveRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
@@ -348,7 +328,6 @@ interface AuthenticatedRouteChildren {
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedBatchesRoute: AuthenticatedBatchesRouteWithChildren,
-  AuthenticatedCommunityRoute: AuthenticatedCommunityRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedLiveRoute: AuthenticatedLiveRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,

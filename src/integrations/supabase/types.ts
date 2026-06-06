@@ -94,30 +94,6 @@ export type Database = {
           },
         ]
       }
-      community_messages: {
-        Row: {
-          created_at: string
-          id: string
-          message: string
-          student_id: string
-          student_name: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          message: string
-          student_id: string
-          student_name: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          message?: string
-          student_id?: string
-          student_name?: string
-        }
-        Relationships: []
-      }
       enrollments: {
         Row: {
           batch_id: string
@@ -149,45 +125,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      extra_notes: {
-        Row: {
-          batch_id: string
-          category: string
-          chapter_id: string | null
-          created_at: string
-          id: string
-          pdf_url: string
-          sort_order: number
-          subject_id: string | null
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          batch_id: string
-          category?: string
-          chapter_id?: string | null
-          created_at?: string
-          id?: string
-          pdf_url: string
-          sort_order?: number
-          subject_id?: string | null
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          batch_id?: string
-          category?: string
-          chapter_id?: string | null
-          created_at?: string
-          id?: string
-          pdf_url?: string
-          sort_order?: number
-          subject_id?: string | null
-          title?: string
-          updated_at?: string
-        }
-        Relationships: []
       }
       homepage_banners: {
         Row: {
@@ -429,7 +366,6 @@ export type Database = {
         Row: {
           blocked: boolean
           class_level: string | null
-          community_blocked: boolean
           created_at: string
           full_name: string
           id: string
@@ -439,7 +375,6 @@ export type Database = {
         Insert: {
           blocked?: boolean
           class_level?: string | null
-          community_blocked?: boolean
           created_at?: string
           full_name?: string
           id: string
@@ -449,7 +384,6 @@ export type Database = {
         Update: {
           blocked?: boolean
           class_level?: string | null
-          community_blocked?: boolean
           created_at?: string
           full_name?: string
           id?: string
@@ -530,8 +464,6 @@ export type Database = {
         }
         Returns: boolean
       }
-      is_blocked: { Args: { _uid: string }; Returns: boolean }
-      is_community_blocked: { Args: { _uid: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "student"
