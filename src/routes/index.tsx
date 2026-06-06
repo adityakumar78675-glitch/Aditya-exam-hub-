@@ -2,7 +2,6 @@ import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { GraduationCap, BookOpen, Video, FileText, Trophy } from "lucide-react";
-import { HeroBanner } from "@/components/HeroBanner";
 
 export const Route = createFileRoute("/")({
   component: Landing,
@@ -27,10 +26,6 @@ function Landing() {
           </div>
         </div>
       </header>
-
-      <section className="max-w-7xl mx-auto px-4 md:px-6 pt-6">
-        <HeroBanner />
-      </section>
 
       <section className="max-w-7xl mx-auto px-6 py-20 text-center">
         <span className="inline-block text-xs font-bold text-accent uppercase tracking-widest mb-4">India's Smart Exam Prep</span>

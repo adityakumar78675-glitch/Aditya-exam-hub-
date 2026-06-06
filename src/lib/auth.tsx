@@ -33,6 +33,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    // Ensure default admin exists (idempotent)
+    fetch("/api/public/init-admin", { method: "POST" }).catch(() => {});
+
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
       setUser(s?.user ?? null);

@@ -21,6 +21,7 @@ import { Route as AuthenticatedLiveRouteImport } from './routes/_authenticated/l
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedBatchesRouteImport } from './routes/_authenticated/batches'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as ApiPublicInitAdminRouteImport } from './routes/api/public/init-admin'
 import { Route as AuthenticatedLecturesLectureIdRouteImport } from './routes/_authenticated/lectures.$lectureId'
 import { Route as AuthenticatedBatchesBatchIdRouteImport } from './routes/_authenticated/batches.$batchId'
 
@@ -83,6 +84,11 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const ApiPublicInitAdminRoute = ApiPublicInitAdminRouteImport.update({
+  id: '/api/public/init-admin',
+  path: '/api/public/init-admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedLecturesLectureIdRoute =
   AuthenticatedLecturesLectureIdRouteImport.update({
     id: '/lectures/$lectureId',
@@ -110,6 +116,7 @@ export interface FileRoutesByFullPath {
   '/tests': typeof AuthenticatedTestsRoute
   '/batches/$batchId': typeof AuthenticatedBatchesBatchIdRoute
   '/lectures/$lectureId': typeof AuthenticatedLecturesLectureIdRoute
+  '/api/public/init-admin': typeof ApiPublicInitAdminRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -125,6 +132,7 @@ export interface FileRoutesByTo {
   '/tests': typeof AuthenticatedTestsRoute
   '/batches/$batchId': typeof AuthenticatedBatchesBatchIdRoute
   '/lectures/$lectureId': typeof AuthenticatedLecturesLectureIdRoute
+  '/api/public/init-admin': typeof ApiPublicInitAdminRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -142,6 +150,7 @@ export interface FileRoutesById {
   '/_authenticated/tests': typeof AuthenticatedTestsRoute
   '/_authenticated/batches/$batchId': typeof AuthenticatedBatchesBatchIdRoute
   '/_authenticated/lectures/$lectureId': typeof AuthenticatedLecturesLectureIdRoute
+  '/api/public/init-admin': typeof ApiPublicInitAdminRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -159,6 +168,7 @@ export interface FileRouteTypes {
     | '/tests'
     | '/batches/$batchId'
     | '/lectures/$lectureId'
+    | '/api/public/init-admin'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -174,6 +184,7 @@ export interface FileRouteTypes {
     | '/tests'
     | '/batches/$batchId'
     | '/lectures/$lectureId'
+    | '/api/public/init-admin'
   id:
     | '__root__'
     | '/'
@@ -190,6 +201,7 @@ export interface FileRouteTypes {
     | '/_authenticated/tests'
     | '/_authenticated/batches/$batchId'
     | '/_authenticated/lectures/$lectureId'
+    | '/api/public/init-admin'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -199,6 +211,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
+  ApiPublicInitAdminRoute: typeof ApiPublicInitAdminRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -287,6 +300,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/api/public/init-admin': {
+      id: '/api/public/init-admin'
+      path: '/api/public/init-admin'
+      fullPath: '/api/public/init-admin'
+      preLoaderRoute: typeof ApiPublicInitAdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/lectures/$lectureId': {
       id: '/_authenticated/lectures/$lectureId'
       path: '/lectures/$lectureId'
@@ -346,6 +366,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
+  ApiPublicInitAdminRoute: ApiPublicInitAdminRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
