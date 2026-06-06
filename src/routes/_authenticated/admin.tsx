@@ -33,20 +33,24 @@ function AdminPage() {
       </header>
       <div className="p-8 max-w-6xl mx-auto w-full">
         <Tabs defaultValue="overview">
-          <TabsList>
+          <TabsList className="flex flex-wrap h-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="batches">Batches</TabsTrigger>
             <TabsTrigger value="lectures">Curriculum</TabsTrigger>
+            <TabsTrigger value="notes">Extra Notes</TabsTrigger>
             <TabsTrigger value="live">Live</TabsTrigger>
             <TabsTrigger value="banners">Banners</TabsTrigger>
             <TabsTrigger value="students">Students</TabsTrigger>
+            <TabsTrigger value="community">Community</TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="mt-6"><Overview /></TabsContent>
           <TabsContent value="batches" className="mt-6"><BatchesAdmin /></TabsContent>
           <TabsContent value="lectures" className="mt-6"><LecturesAdmin /></TabsContent>
+          <TabsContent value="notes" className="mt-6"><ExtraNotesAdmin /></TabsContent>
           <TabsContent value="live" className="mt-6"><LiveAdmin /></TabsContent>
           <TabsContent value="banners" className="mt-6"><BannersAdmin /></TabsContent>
           <TabsContent value="students" className="mt-6"><StudentsAdmin /></TabsContent>
+          <TabsContent value="community" className="mt-6"><CommunityAdmin /></TabsContent>
         </Tabs>
       </div>
     </div>
