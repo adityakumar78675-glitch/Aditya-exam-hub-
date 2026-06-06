@@ -24,6 +24,7 @@ function AuthLayout() {
     { to: "/batches", label: "Browse Batches", icon: BookOpen },
     { to: "/live", label: "Live Classes", icon: Video },
     { to: "/tests", label: "Practice Tests", icon: Trophy },
+    { to: "/community", label: "Community", icon: MessagesSquare },
     { to: "/profile", label: "Profile", icon: User },
   ];
 
