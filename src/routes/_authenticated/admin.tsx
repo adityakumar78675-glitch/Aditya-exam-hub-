@@ -416,9 +416,7 @@ function LiveAdmin() {
   });
   const { data: items = [] } = useQuery({
     queryKey: ["admin-live-classes"],
-    queryFn: async () => (await supabase.from("live_classes")
-      .select("id, batch_id, title, teacher, subject, thumbnail_url, status, scheduled_at, started_at, ended_at, created_at, updated_at")
-      .order("created_at", { ascending: false })).data ?? [],
+    queryFn: async () => (await supabase.from("live_classes").select("*").order("created_at", { ascending: false })).data ?? [],
   });
 
   useEffect(() => {
@@ -482,19 +480,11 @@ function LiveClassDialog({ batches, initial, onSaved, trigger }: any) {
   const [form, setForm] = useState<any>({ batch_id: "", title: "", teacher: "", subject: "", thumbnail_url: "", stream_url: "", status: "scheduled", scheduled_at: "" });
 
   useEffect(() => {
-    if (!open) return;
-    if (initial) {
-      setForm({
+    if (open) {
+      setForm(initial ? {
         ...initial,
-        stream_url: "",
         scheduled_at: initial.scheduled_at ? new Date(initial.scheduled_at).toISOString().slice(0, 16) : "",
-      });
-      // stream_url is column-restricted; admins fetch it via RPC
-      supabase.rpc("get_live_stream_url", { _class_id: initial.id }).then(({ data }) => {
-        setForm((f: any) => ({ ...f, stream_url: (data as string | null) ?? "" }));
-      });
-    } else {
-      setForm({ batch_id: batches?.[0]?.id ?? "", title: "", teacher: "", subject: "", thumbnail_url: "", stream_url: "", status: "scheduled", scheduled_at: "" });
+      } : { batch_id: batches?.[0]?.id ?? "", title: "", teacher: "", subject: "", thumbnail_url: "", stream_url: "", status: "scheduled", scheduled_at: "" });
     }
   }, [open, initial, batches]);
 
