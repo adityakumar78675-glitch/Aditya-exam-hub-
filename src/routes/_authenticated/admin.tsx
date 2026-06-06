@@ -547,7 +547,8 @@ function StudentsAdmin() {
 
   const toggle = useMutation({
     mutationFn: async ({ id, field, value }: { id: string; field: "blocked" | "community_blocked"; value: boolean }) => {
-      const { error } = await supabase.from("profiles").update({ [field]: value }).eq("id", id);
+      const update = field === "blocked" ? { blocked: value } : { community_blocked: value };
+      const { error } = await supabase.from("profiles").update(update).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Updated"); qc.invalidateQueries({ queryKey: ["admin-students"] }); },
