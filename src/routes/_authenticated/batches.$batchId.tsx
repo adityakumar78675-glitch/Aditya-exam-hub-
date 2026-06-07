@@ -294,6 +294,10 @@ function BatchDetail() {
               <p className="text-sm text-muted-foreground">{(curriculumErrorInfo as Error | undefined)?.message ?? "Retrying automatically."}</p>
               <Button variant="outline" size="sm" onClick={() => refetchCurriculum()}><RefreshCcw className="size-4 mr-1" /> Retry now</Button>
             </div>
+          ) : curriculum && !hasAccess ? (
+            <div className="bg-card border border-border rounded-xl p-6 text-center text-sm text-muted-foreground">
+              Purchase Batch to View Curriculum
+            </div>
           ) : !hasAnyCurriculum ? (
             <div className="bg-card border border-border rounded-xl p-6 text-center text-sm text-muted-foreground">
               No Curriculum Added Yet
