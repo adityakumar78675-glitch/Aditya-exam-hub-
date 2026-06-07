@@ -31,24 +31,18 @@ const KNOWN_SUBJECTS = ["Physics", "Chemistry", "English", "Hindi", "Biology", "
 function getBatchSubjectNames(subjects: string[] | null | undefined) {
   const raw = (subjects ?? []).join(", ").trim();
   if (!raw) return [];
-  const found = KNOWN_SUBJECTS.filter((subject) => raw.toLowerCase().includes(subject.toLowerCase().replace("s", "")));
+  const normalized = raw.toLowerCase();
+  const aliases: Record<string, string[]> = {
+    Physics: ["physics"],
+    Chemistry: ["chemistry"],
+    English: ["english"],
+    Hindi: ["hindi"],
+    Biology: ["biology", "bio"],
+    Maths: ["maths", "math", "mathematics"],
+  };
+  const found = KNOWN_SUBJECTS.filter((subject) => aliases[subject].some((alias) => normalized.includes(alias)));
   if (found.length > 0) return found;
   return raw.split(/,|\/|\band\b/gi).map((subject) => subject.trim()).filter(Boolean);
-}
-
-function ErrorState({ title, message, onRetry }: { title: string; message: string; onRetry: () => void }) {
-  return (
-    <div className="p-4 md:p-8 max-w-5xl mx-auto w-full">
-      <div className="bg-card border border-border rounded-xl p-6 text-center space-y-3">
-        <h2 className="text-xl font-bold">{title}</h2>
-        <p className="text-sm text-muted-foreground">{message}</p>
-        <div className="flex justify-center gap-2 flex-wrap">
-          <Button variant="outline" onClick={onRetry}><RefreshCcw className="size-4 mr-1" /> Retry</Button>
-          <Button asChild><Link to="/batches">Browse batches</Link></Button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function BatchDetail() {
