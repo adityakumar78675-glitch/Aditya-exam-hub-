@@ -5,7 +5,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const curriculumInput = z.object({ batchId: z.string().uuid() });
 
-async function safeAdminQuery<T>(label: string, run: () => Promise<{ data: T | null; error: any }>, fallback: T): Promise<T> {
+async function safeAdminQuery<T>(label: string, run: () => PromiseLike<{ data: T | null; error: any }>, fallback: T): Promise<T> {
   try {
     const { data, error } = await run();
     if (error) {
@@ -83,9 +83,14 @@ export const getBatchCurriculum = createServerFn({ method: "POST" })
       };
     }
 
-    const [subjects, chapters, lectures, extraNotes] = await Promise.all([
-      safeAdminQuery("subjects", () => supabaseAdmin.from("subjects").select("*").eq("batch_id", batchId).order("sort_order", { ascending: true }), [] as any[]),
-      safeAdminQuery("chapters", () => supabaseAdmin.from("chapters").select("*").in("subject_id", awaitSubjectIds(batchId, supabaseAdmin)).order("sort_order", { ascending: true }), [] as any[]),
+    const subjects = await safeAdminQuery("subjects", () =>
+      supabaseAdmin.from("subjects").select("*").eq("batch_id", batchId).order("sort_order", { ascending: true }), [] as any[]);
+    const subjectIds = subjects.map((subject: any) => subject.id).filter(Boolean);
+
+    const [chapters, lectures, extraNotes] = await Promise.all([
+      subjectIds.length
+        ? safeAdminQuery("chapters", () => supabaseAdmin.from("chapters").select("*").in("subject_id", subjectIds).order("sort_order", { ascending: true }), [] as any[])
+        : Promise.resolve([]),
       safeAdminQuery("lectures", () => supabaseAdmin.from("lectures").select("*").eq("batch_id", batchId).order("order_index", { ascending: true }), [] as any[]),
       safeAdminQuery("extra notes", () => supabaseAdmin.from("extra_notes").select("*").eq("batch_id", batchId).order("sort_order", { ascending: true }), [] as any[]),
     ]);
@@ -111,8 +116,3 @@ export const getBatchCurriculum = createServerFn({ method: "POST" })
       errors: [],
     };
   });
-
-async function awaitSubjectIds(batchId: string, supabaseAdmin: any) {
-  const { data } = await supabaseAdmin.from("subjects").select("id").eq("batch_id", batchId);
-  return (data ?? []).map((subject: any) => subject.id);
-}
