@@ -287,22 +287,17 @@ function BatchDetail() {
             </div>
           ) : (
             <>
-              {/* Subject cards (PW-style grid) — tap to open chapter list */}
+              {/* Subject cards (PW-style grid) */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                 {filteredTree.map((s) => {
                   const totalLec = s.chapters.reduce((t, c) => t + c.lectures.length, 0);
                   const isActive = selectedSubjectId === s.id;
-                  const isUncat = s.id === UNCATEGORIZED;
-                  const handleClick = () => {
-                    if (isUncat) setSelectedSubjectId(s.id);
-                    else navigate({ to: "/batches/$batchId/subjects/$subjectId", params: { batchId, subjectId: s.id } });
-                  };
                   return (
                     <button
                       key={s.id}
-                      onClick={handleClick}
-                      className={`text-left rounded-2xl border p-4 transition-all active:scale-[0.99] ${
-                        isActive && isUncat ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-card hover:border-primary/50 hover:shadow-sm"
+                      onClick={() => setSelectedSubjectId(s.id)}
+                      className={`text-left rounded-2xl border p-4 transition-all ${
+                        isActive ? "border-primary bg-primary/5 shadow-sm" : "border-border bg-card hover:border-primary/50"
                       }`}
                     >
                       <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-2 text-lg">
@@ -315,8 +310,8 @@ function BatchDetail() {
                 })}
               </div>
 
-              {/* Chapter chips — only for legacy uncategorized lectures (inline view) */}
-              {activeSubject?.id === UNCATEGORIZED && activeSubject.chapters.length > 0 && (
+              {/* Chapter chips */}
+              {activeSubject && activeSubject.chapters.length > 0 && (
                 <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
                   {activeSubject.chapters.map((c) => (
                     <button
@@ -332,8 +327,7 @@ function BatchDetail() {
                 </div>
               )}
 
-              {/* Lectures — inline only for legacy uncategorized */}
-              {activeSubject?.id === UNCATEGORIZED && (
+              {/* Lectures */}
               <div className="space-y-2">
                 {(activeChapter?.lectures ?? []).map((l: any) => {
                   const lectureUnlocked = hasAccess || l.is_free;
@@ -382,7 +376,6 @@ function BatchDetail() {
                   </div>
                 )}
               </div>
-              )}
             </>
           )}
         </div>

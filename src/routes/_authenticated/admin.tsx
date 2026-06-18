@@ -778,7 +778,7 @@ function CurriculumAdmin() {
 
           <div className="space-y-3">
             {subjects.map((s: any) => (
-              <SubjectRow key={s.id} subject={s} onRename={(name: string) => renameSubject.mutate({ id: s.id, name })} onDelete={() => { if (confirm("Delete subject and all its chapters?")) delSubject.mutate(s.id); }} />
+              <SubjectRow key={s.id} subject={s} onRename={(name) => renameSubject.mutate({ id: s.id, name })} onDelete={() => { if (confirm("Delete subject and all its chapters?")) delSubject.mutate(s.id); }} />
             ))}
             {subjects.length === 0 && <p className="text-sm text-muted-foreground">No subjects yet.</p>}
           </div>
