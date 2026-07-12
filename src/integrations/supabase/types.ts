@@ -94,29 +94,153 @@ export type Database = {
           },
         ]
       }
-      community_messages: {
+      communities: {
         Row: {
+          batch_id: string | null
           created_at: string
+          created_by: string | null
+          description: string | null
+          icon: string | null
           id: string
-          message: string
-          student_id: string
-          student_name: string
+          is_active: boolean
+          name: string
+          rules: string | null
+          updated_at: string
         }
         Insert: {
+          batch_id?: string | null
           created_at?: string
+          created_by?: string | null
+          description?: string | null
+          icon?: string | null
           id?: string
-          message: string
-          student_id: string
-          student_name: string
+          is_active?: boolean
+          name: string
+          rules?: string | null
+          updated_at?: string
         }
         Update: {
+          batch_id?: string | null
           created_at?: string
+          created_by?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          rules?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communities_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      community_members: {
+        Row: {
+          community_id: string
+          id: string
+          joined_at: string
+          role: string
+          status: string
+          student_id: string
+        }
+        Insert: {
+          community_id: string
+          id?: string
+          joined_at?: string
+          role?: string
+          status?: string
+          student_id: string
+        }
+        Update: {
+          community_id?: string
+          id?: string
+          joined_at?: string
+          role?: string
+          status?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_members_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "communities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      community_messages: {
+        Row: {
+          attachment_name: string | null
+          attachment_type: string | null
+          attachment_url: string | null
+          community_id: string
+          created_at: string
+          deleted_at: string | null
+          edited_at: string | null
+          id: string
+          message: string
+          pinned: boolean
+          reply_to_id: string | null
+          student_id: string
+          student_name: string
+          updated_at: string
+        }
+        Insert: {
+          attachment_name?: string | null
+          attachment_type?: string | null
+          attachment_url?: string | null
+          community_id: string
+          created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
+          id?: string
+          message: string
+          pinned?: boolean
+          reply_to_id?: string | null
+          student_id: string
+          student_name: string
+          updated_at?: string
+        }
+        Update: {
+          attachment_name?: string | null
+          attachment_type?: string | null
+          attachment_url?: string | null
+          community_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
           id?: string
           message?: string
+          pinned?: boolean
+          reply_to_id?: string | null
           student_id?: string
           student_name?: string
+          updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "community_messages_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "communities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_messages_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "community_messages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       enrollments: {
         Row: {
@@ -522,6 +646,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_join_community: {
+        Args: { _cid: string; _uid: string }
+        Returns: boolean
+      }
       get_live_stream_url: { Args: { _class_id: string }; Returns: string }
       has_role: {
         Args: {
@@ -531,7 +659,15 @@ export type Database = {
         Returns: boolean
       }
       is_blocked: { Args: { _uid: string }; Returns: boolean }
+      is_community_banned: {
+        Args: { _cid: string; _uid: string }
+        Returns: boolean
+      }
       is_community_blocked: { Args: { _uid: string }; Returns: boolean }
+      is_community_member: {
+        Args: { _cid: string; _uid: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "student"

@@ -40,6 +40,7 @@ function AdminPage() {
             <TabsTrigger value="lectures">Lectures</TabsTrigger>
             <TabsTrigger value="live">Live</TabsTrigger>
             <TabsTrigger value="banners">Banners</TabsTrigger>
+            <TabsTrigger value="community">Community</TabsTrigger>
             <TabsTrigger value="students">Students</TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="mt-6"><Overview /></TabsContent>
@@ -48,6 +49,7 @@ function AdminPage() {
           <TabsContent value="lectures" className="mt-6"><LecturesAdmin /></TabsContent>
           <TabsContent value="live" className="mt-6"><LiveAdmin /></TabsContent>
           <TabsContent value="banners" className="mt-6"><BannersAdmin /></TabsContent>
+          <TabsContent value="community" className="mt-6"><CommunityAdmin /></TabsContent>
           <TabsContent value="students" className="mt-6"><StudentsAdmin /></TabsContent>
         </Tabs>
 
@@ -857,5 +859,127 @@ function ChapterRow({ chapter, onRename, onDelete }: any) {
       <Input value={title} onChange={(e) => setTitle(e.target.value)} onBlur={() => title !== chapter.title && onRename(title)} className="flex-1 h-8 text-sm" />
       <Button size="sm" variant="ghost" onClick={onDelete}><Trash2 className="size-3 text-destructive" /></Button>
     </div>
+  );
+}
+
+function CommunityAdmin() {
+  const qc = useQueryClient();
+  const { data: batches = [] } = useQuery({
+    queryKey: ["adm-comm-batches"],
+    queryFn: async () => (await supabase.from("batches").select("id, title").order("title")).data ?? [],
+  });
+  const { data: communities = [] } = useQuery({
+    queryKey: ["adm-communities"],
+    queryFn: async () => (await (supabase.from as any)("communities").select("*").order("created_at")).data ?? [],
+  });
+
+  const del = useMutation({
+    mutationFn: async (id: string) => { const { error } = await (supabase.from as any)("communities").delete().eq("id", id); if (error) throw error; },
+    onSuccess: () => { toast.success("Deleted"); qc.invalidateQueries({ queryKey: ["adm-communities"] }); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end"><CommunityDialog batches={batches} onSaved={() => qc.invalidateQueries({ queryKey: ["adm-communities"] })} /></div>
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-muted text-muted-foreground text-xs uppercase">
+            <tr><th className="text-left p-3">Icon</th><th className="text-left p-3">Name</th><th className="text-left p-3">Batch</th><th className="text-left p-3">Active</th><th className="p-3"></th></tr>
+          </thead>
+          <tbody>
+            {communities.map((c: any) => (
+              <tr key={c.id} className="border-t border-border">
+                <td className="p-3 text-2xl">{c.icon || "💬"}</td>
+                <td className="p-3 font-medium">
+                  <div>{c.name}</div>
+                  {c.description && <div className="text-xs text-muted-foreground">{c.description}</div>}
+                </td>
+                <td className="p-3 text-xs">{batches.find((b: any) => b.id === c.batch_id)?.title || "All students"}</td>
+                <td className="p-3">{c.is_active ? "Yes" : "No"}</td>
+                <td className="p-3 text-right space-x-1">
+                  <CommunityDialog initial={c} batches={batches} onSaved={() => qc.invalidateQueries({ queryKey: ["adm-communities"] })} trigger={<Button size="sm" variant="ghost"><Pencil className="size-4" /></Button>} />
+                  <Button size="sm" variant="ghost" onClick={() => confirm("Delete community and all its messages?") && del.mutate(c.id)}><Trash2 className="size-4 text-destructive" /></Button>
+                </td>
+              </tr>
+            ))}
+            {communities.length === 0 && <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">No communities yet</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function CommunityDialog({ initial, batches, onSaved, trigger }: any) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState<any>({ name: "", description: "", icon: "💬", batch_id: "", rules: "", is_active: true });
+
+  useEffect(() => {
+    if (open) setForm(initial ? { ...initial, batch_id: initial.batch_id || "" } : { name: "", description: "", icon: "💬", batch_id: "", rules: "", is_active: true });
+  }, [open, initial]);
+
+  async function save() {
+    const payload: any = {
+      name: form.name.trim(),
+      description: form.description || null,
+      icon: form.icon || null,
+      batch_id: form.batch_id || null,
+      rules: form.rules || null,
+      is_active: form.is_active,
+    };
+    if (!payload.name) { toast.error("Name required"); return; }
+    const q = initial
+      ? (supabase.from as any)("communities").update(payload).eq("id", initial.id)
+      : (supabase.from as any)("communities").insert(payload);
+    const { error } = await q;
+    if (error) { toast.error(error.message); return; }
+    toast.success("Saved");
+    setOpen(false);
+    onSaved?.();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{trigger || <Button><Plus className="size-4 mr-1" /> New Community</Button>}</DialogTrigger>
+      <DialogContent>
+        <DialogHeader><DialogTitle>{initial ? "Edit" : "New"} Community</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div className="grid grid-cols-4 gap-2">
+            <div>
+              <Label>Icon</Label>
+              <Input value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} maxLength={4} />
+            </div>
+            <div className="col-span-3">
+              <Label>Name</Label>
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            </div>
+          </div>
+          <div>
+            <Label>Description</Label>
+            <Input value={form.description || ""} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          </div>
+          <div>
+            <Label>Batch (leave empty for all students)</Label>
+            <Select value={form.batch_id || "__all__"} onValueChange={(v) => setForm({ ...form, batch_id: v === "__all__" ? "" : v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">All students (public)</SelectItem>
+                {batches.map((b: any) => <SelectItem key={b.id} value={b.id}>{b.title}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Rules (shown when joining)</Label>
+            <Textarea value={form.rules || ""} onChange={(e) => setForm({ ...form, rules: e.target.value })} rows={3} />
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch checked={form.is_active} onCheckedChange={(v) => setForm({ ...form, is_active: v })} />
+            <Label>Active</Label>
+          </div>
+        </div>
+        <DialogFooter><Button onClick={save}>Save</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
