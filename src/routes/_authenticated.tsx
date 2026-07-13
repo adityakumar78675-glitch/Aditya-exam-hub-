@@ -133,6 +133,7 @@ function AuthLayout() {
         </div>
         <Outlet />
       </main>
+      <MasterJiFloatingButton />
     </div>
   );
 }
