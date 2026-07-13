@@ -253,7 +253,7 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
                         </div>
                       ) : (
                         <div>
-                          <div className="prose prose-sm dark:prose-invert max-w-none break-words">
+                          <div className="text-sm leading-relaxed break-words [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_code]:text-xs [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_h1]:text-lg [&_h1]:font-bold [&_h2]:text-base [&_h2]:font-bold [&_h3]:font-semibold [&_a]:text-primary [&_a]:underline">
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>{text || " "}</ReactMarkdown>
                           </div>
                           {!isStreaming || idx !== messages.length - 1 ? (
