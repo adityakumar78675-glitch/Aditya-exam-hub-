@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { RichMarkdown } from "@/components/RichMarkdown";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -253,9 +253,8 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
                         </div>
                       ) : (
                         <div>
-                          <div className="text-sm leading-relaxed break-words [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_code]:text-xs [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_h1]:text-lg [&_h1]:font-bold [&_h2]:text-base [&_h2]:font-bold [&_h3]:font-semibold [&_a]:text-primary [&_a]:underline">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>{text || " "}</ReactMarkdown>
-                          </div>
+                          <RichMarkdown>{text || " "}</RichMarkdown>
+
                           {!isStreaming || idx !== messages.length - 1 ? (
                             <div className="flex gap-1 mt-2">
                               <button
