@@ -15,6 +15,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AuthenticatedTestsRouteImport } from './routes/_authenticated/tests'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedNotesRouteImport } from './routes/_authenticated/notes'
@@ -54,6 +55,11 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiChatRoute = ApiChatRouteImport.update({
+  id: '/api/chat',
+  path: '/api/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedTestsRoute = AuthenticatedTestsRouteImport.update({
@@ -128,6 +134,7 @@ export interface FileRoutesByFullPath {
   '/notes': typeof AuthenticatedNotesRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/tests': typeof AuthenticatedTestsRoute
+  '/api/chat': typeof ApiChatRoute
   '/batches/$batchId': typeof AuthenticatedBatchesBatchIdRoute
   '/lectures/$lectureId': typeof AuthenticatedLecturesLectureIdRoute
   '/api/public/init-admin': typeof ApiPublicInitAdminRoute
@@ -146,6 +153,7 @@ export interface FileRoutesByTo {
   '/notes': typeof AuthenticatedNotesRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/tests': typeof AuthenticatedTestsRoute
+  '/api/chat': typeof ApiChatRoute
   '/batches/$batchId': typeof AuthenticatedBatchesBatchIdRoute
   '/lectures/$lectureId': typeof AuthenticatedLecturesLectureIdRoute
   '/api/public/init-admin': typeof ApiPublicInitAdminRoute
@@ -166,6 +174,7 @@ export interface FileRoutesById {
   '/_authenticated/notes': typeof AuthenticatedNotesRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/tests': typeof AuthenticatedTestsRoute
+  '/api/chat': typeof ApiChatRoute
   '/_authenticated/batches/$batchId': typeof AuthenticatedBatchesBatchIdRoute
   '/_authenticated/lectures/$lectureId': typeof AuthenticatedLecturesLectureIdRoute
   '/api/public/init-admin': typeof ApiPublicInitAdminRoute
@@ -186,6 +195,7 @@ export interface FileRouteTypes {
     | '/notes'
     | '/profile'
     | '/tests'
+    | '/api/chat'
     | '/batches/$batchId'
     | '/lectures/$lectureId'
     | '/api/public/init-admin'
@@ -204,6 +214,7 @@ export interface FileRouteTypes {
     | '/notes'
     | '/profile'
     | '/tests'
+    | '/api/chat'
     | '/batches/$batchId'
     | '/lectures/$lectureId'
     | '/api/public/init-admin'
@@ -223,6 +234,7 @@ export interface FileRouteTypes {
     | '/_authenticated/notes'
     | '/_authenticated/profile'
     | '/_authenticated/tests'
+    | '/api/chat'
     | '/_authenticated/batches/$batchId'
     | '/_authenticated/lectures/$lectureId'
     | '/api/public/init-admin'
@@ -235,6 +247,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
+  ApiChatRoute: typeof ApiChatRoute
   ApiPublicInitAdminRoute: typeof ApiPublicInitAdminRoute
 }
 
@@ -280,6 +293,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/chat': {
+      id: '/api/chat'
+      path: '/api/chat'
+      fullPath: '/api/chat'
+      preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/tests': {
@@ -408,6 +428,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
+  ApiChatRoute: ApiChatRoute,
   ApiPublicInitAdminRoute: ApiPublicInitAdminRoute,
 }
 export const routeTree = rootRouteImport
