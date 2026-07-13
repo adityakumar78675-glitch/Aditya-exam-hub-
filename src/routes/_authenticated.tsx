@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { Home, BookOpen, Video, Trophy, User, LogOut, Shield, Menu, X, Users, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MasterJiFloatingButton } from "@/components/MasterJi";
 
 export const Route = createFileRoute("/_authenticated")({ component: AuthLayout });
 
