@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Pencil, Trash2, Plus, Users, BookOpen, Video, IndianRupee, Play } from "lucide-react";
+import { NotesAdmin } from "@/components/NotesAdmin";
 
 
 export const Route = createFileRoute("/_authenticated/admin")({ component: AdminPage });
