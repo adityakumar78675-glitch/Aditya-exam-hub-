@@ -339,9 +339,14 @@ export type Database = {
           category: string
           chapter_id: string | null
           created_at: string
+          description: string | null
+          file_name: string | null
+          file_size: number | null
+          file_type: string | null
           id: string
           pdf_url: string
           sort_order: number
+          storage_path: string | null
           subject_id: string | null
           title: string
           updated_at: string
@@ -351,9 +356,14 @@ export type Database = {
           category?: string
           chapter_id?: string | null
           created_at?: string
+          description?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          file_type?: string | null
           id?: string
           pdf_url: string
           sort_order?: number
+          storage_path?: string | null
           subject_id?: string | null
           title: string
           updated_at?: string
@@ -363,9 +373,14 @@ export type Database = {
           category?: string
           chapter_id?: string | null
           created_at?: string
+          description?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          file_type?: string | null
           id?: string
           pdf_url?: string
           sort_order?: number
+          storage_path?: string | null
           subject_id?: string | null
           title?: string
           updated_at?: string
