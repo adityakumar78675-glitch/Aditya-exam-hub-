@@ -42,6 +42,7 @@ function AdminPage() {
             <TabsTrigger value="live">Live</TabsTrigger>
             <TabsTrigger value="banners">Banners</TabsTrigger>
             <TabsTrigger value="community">Community</TabsTrigger>
+            <TabsTrigger value="notes">Notes</TabsTrigger>
             <TabsTrigger value="students">Students</TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="mt-6"><Overview /></TabsContent>
@@ -51,6 +52,7 @@ function AdminPage() {
           <TabsContent value="live" className="mt-6"><LiveAdmin /></TabsContent>
           <TabsContent value="banners" className="mt-6"><BannersAdmin /></TabsContent>
           <TabsContent value="community" className="mt-6"><CommunityAdmin /></TabsContent>
+          <TabsContent value="notes" className="mt-6"><NotesAdmin /></TabsContent>
           <TabsContent value="students" className="mt-6"><StudentsAdmin /></TabsContent>
         </Tabs>
 
