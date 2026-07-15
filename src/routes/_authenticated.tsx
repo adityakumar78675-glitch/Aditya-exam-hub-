@@ -127,7 +127,7 @@ function AuthLayout() {
 
       <main className="flex-1 min-w-0">
         {/* Top bar with hamburger toggle */}
-        <div className="sticky top-0 z-30 h-12 flex items-center px-2 bg-card/80 backdrop-blur border-b border-border">
+        <div className="sticky top-0 z-30 h-12 flex items-center justify-between px-2 bg-card/80 backdrop-blur border-b border-border">
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
@@ -137,6 +137,7 @@ function AuthLayout() {
           >
             {menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
+          <NotificationBell />
         </div>
         <Outlet />
       </main>
