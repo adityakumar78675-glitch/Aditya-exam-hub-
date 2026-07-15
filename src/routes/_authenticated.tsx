@@ -19,6 +19,11 @@ function AuthLayout() {
     if (!loading && !user) navigate({ to: "/login", replace: true });
   }, [user, loading, navigate]);
 
+  // Request push permission on first login
+  useEffect(() => {
+    if (user) ensurePushOnLogin();
+  }, [user]);
+
   // Close mobile drawer on route change
   useEffect(() => {
     setMenuOpen(false);
