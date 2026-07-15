@@ -645,6 +645,97 @@ export type Database = {
           },
         ]
       }
+      notification_recipients: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          id: string
+          notification_id: string
+          read_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          notification_id: string
+          read_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          notification_id?: string
+          read_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_recipients_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          batch_id: string | null
+          body: string
+          button_text: string | null
+          class_level: string | null
+          created_at: string
+          created_by: string
+          id: string
+          image_url: string | null
+          redirect_url: string | null
+          target_type: Database["public"]["Enums"]["notification_target"]
+          target_user_id: string | null
+          title: string
+          type: Database["public"]["Enums"]["notification_type"]
+        }
+        Insert: {
+          batch_id?: string | null
+          body: string
+          button_text?: string | null
+          class_level?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          image_url?: string | null
+          redirect_url?: string | null
+          target_type?: Database["public"]["Enums"]["notification_target"]
+          target_user_id?: string | null
+          title: string
+          type?: Database["public"]["Enums"]["notification_type"]
+        }
+        Update: {
+          batch_id?: string | null
+          body?: string
+          button_text?: string | null
+          class_level?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          image_url?: string | null
+          redirect_url?: string | null
+          target_type?: Database["public"]["Enums"]["notification_target"]
+          target_user_id?: string | null
+          title?: string
+          type?: Database["public"]["Enums"]["notification_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           blocked: boolean
@@ -675,6 +766,39 @@ export type Database = {
           id?: string
           phone?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          p256dh: string
+          updated_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          p256dh: string
+          updated_at?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          p256dh?: string
+          updated_at?: string
+          user_agent?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -767,6 +891,17 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "student"
+      notification_target: "all_students" | "batch" | "class_level" | "user"
+      notification_type:
+        | "new_lecture"
+        | "live_class"
+        | "new_pdf"
+        | "extra_notes"
+        | "community"
+        | "master_ji"
+        | "test_series"
+        | "assignment"
+        | "general"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -895,6 +1030,18 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "student"],
+      notification_target: ["all_students", "batch", "class_level", "user"],
+      notification_type: [
+        "new_lecture",
+        "live_class",
+        "new_pdf",
+        "extra_notes",
+        "community",
+        "master_ji",
+        "test_series",
+        "assignment",
+        "general",
+      ],
     },
   },
 } as const

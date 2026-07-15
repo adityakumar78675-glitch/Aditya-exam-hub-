@@ -4,6 +4,8 @@ import { useAuth } from "@/lib/auth";
 import { Home, BookOpen, Video, Trophy, User, LogOut, Shield, Menu, X, Users, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MasterJiFloatingButton } from "@/components/MasterJi";
+import { NotificationBell } from "@/components/NotificationBell";
+import { ensurePushOnLogin } from "@/lib/push-client";
 
 export const Route = createFileRoute("/_authenticated")({ component: AuthLayout });
 
@@ -16,6 +18,11 @@ function AuthLayout() {
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/login", replace: true });
   }, [user, loading, navigate]);
+
+  // Request push permission on first login
+  useEffect(() => {
+    if (user) ensurePushOnLogin();
+  }, [user]);
 
   // Close mobile drawer on route change
   useEffect(() => {
@@ -120,7 +127,7 @@ function AuthLayout() {
 
       <main className="flex-1 min-w-0">
         {/* Top bar with hamburger toggle */}
-        <div className="sticky top-0 z-30 h-12 flex items-center px-2 bg-card/80 backdrop-blur border-b border-border">
+        <div className="sticky top-0 z-30 h-12 flex items-center justify-between px-2 bg-card/80 backdrop-blur border-b border-border">
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
@@ -130,6 +137,7 @@ function AuthLayout() {
           >
             {menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
+          <NotificationBell />
         </div>
         <Outlet />
       </main>
