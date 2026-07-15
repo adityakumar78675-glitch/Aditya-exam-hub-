@@ -4,6 +4,8 @@ import { useAuth } from "@/lib/auth";
 import { Home, BookOpen, Video, Trophy, User, LogOut, Shield, Menu, X, Users, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MasterJiFloatingButton } from "@/components/MasterJi";
+import { NotificationBell } from "@/components/NotificationBell";
+import { ensurePushOnLogin } from "@/lib/push-client";
 
 export const Route = createFileRoute("/_authenticated")({ component: AuthLayout });
 
