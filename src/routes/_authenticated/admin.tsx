@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { toast } from "sonner";
 import { Pencil, Trash2, Plus, Users, BookOpen, Video, IndianRupee, Play } from "lucide-react";
 import { NotesAdmin } from "@/components/NotesAdmin";
+import { NotificationsAdmin } from "@/components/NotificationsAdmin";
 
 
 export const Route = createFileRoute("/_authenticated/admin")({ component: AdminPage });
