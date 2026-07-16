@@ -142,6 +142,7 @@ function AuthLayout() {
         </div>
         <Outlet />
       </main>
+      <MasterJiLiveButton />
       <MasterJiFloatingButton />
     </div>
   );
