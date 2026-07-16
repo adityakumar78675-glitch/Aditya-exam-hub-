@@ -116,7 +116,7 @@ function MasterJiLiveDialog({ onClose }: { onClose: () => void }) {
     setStatus("connecting");
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
-      const { token } = await fetchToken({ data: {} });
+      const { token } = await fetchToken();
       await conversation.startSession({
         conversationToken: token,
         connectionType: "webrtc",
@@ -130,14 +130,14 @@ function MasterJiLiveDialog({ onClose }: { onClose: () => void }) {
   }, [conversation, fetchToken]);
 
   const end = useCallback(async () => {
-    await conversation.endSession().catch(() => {});
+    try { conversation.endSession(); } catch { /* noop */ }
     startedRef.current = false;
     setStatus("disconnected");
   }, [conversation]);
 
   useEffect(() => {
     return () => {
-      conversation.endSession().catch(() => {});
+      try { conversation.endSession(); } catch { /* noop */ }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -215,7 +215,7 @@ function MasterJiLiveDialog({ onClose }: { onClose: () => void }) {
                 onClick={async () => {
                   const next = !muted;
                   setMuted(next);
-                  await conversation.setVolume({ volume: next ? 0 : 1 }).catch(() => {});
+                  try { conversation.setVolume({ volume: next ? 0 : 1 }); } catch { /* noop */ }
                 }}
                 aria-label={muted ? "Unmute" : "Mute"}
               >
