@@ -4,7 +4,6 @@ import { useAuth } from "@/lib/auth";
 import { Home, BookOpen, Video, Trophy, User, LogOut, Shield, Menu, X, Users, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MasterJiFloatingButton } from "@/components/MasterJi";
-import { MasterJiLiveButton } from "@/components/MasterJiLive";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ensurePushOnLogin } from "@/lib/push-client";
 
@@ -142,7 +141,6 @@ function AuthLayout() {
         </div>
         <Outlet />
       </main>
-      <MasterJiLiveButton />
       <MasterJiFloatingButton />
     </div>
   );
