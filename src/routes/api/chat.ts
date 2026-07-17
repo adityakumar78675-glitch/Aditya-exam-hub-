@@ -72,9 +72,16 @@ export const Route = createFileRoute("/api/chat")({
               ?.map((p) => (p.type === "text" ? p.text : ""))
               .join(" ")
               .trim() ?? "";
+          const lastUserImages: string[] =
+            (lastUser?.parts
+              ?.filter(
+                (p: { type: string; mediaType?: string; url?: string }) =>
+                  p.type === "file" && !!p.mediaType?.startsWith("image/") && !!p.url,
+              )
+              .map((p: { url?: string }) => p.url as string) ?? []) as string[];
 
           if (!conversationId) {
-            const title = lastUserText.slice(0, 60) || "New chat";
+            const title = (lastUserText || "Image question").slice(0, 60) || "New chat";
             const { data: conv, error } = await supabase
               .from("ai_conversations")
               .insert({ user_id: userId, title })
@@ -86,7 +93,6 @@ export const Route = createFileRoute("/api/chat")({
             }
             conversationId = conv.id;
           } else {
-            // touch updated_at
             await supabase
               .from("ai_conversations")
               .update({ updated_at: new Date().toISOString() })
@@ -94,15 +100,17 @@ export const Route = createFileRoute("/api/chat")({
               .eq("user_id", userId);
           }
 
-          // Persist the latest user message
-          if (lastUserText) {
+          // Persist the latest user message (include image markdown so it re-renders on reload)
+          if (lastUserText || lastUserImages.length > 0) {
+            const imageMd = lastUserImages.map((u) => `\n\n![image](${u})`).join("");
             await supabase.from("ai_messages").insert({
               conversation_id: conversationId,
               user_id: userId,
               role: "user",
-              content: lastUserText,
+              content: `${lastUserText}${imageMd}`.trim(),
             });
           }
+
 
           const apiKey = process.env.LOVABLE_API_KEY;
           if (!apiKey) return new Response("AI not configured", { status: 500 });
