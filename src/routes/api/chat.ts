@@ -72,13 +72,12 @@ export const Route = createFileRoute("/api/chat")({
               ?.map((p) => (p.type === "text" ? p.text : ""))
               .join(" ")
               .trim() ?? "";
-          const lastUserImages: string[] =
-            (lastUser?.parts
-              ?.filter(
-                (p: { type: string; mediaType?: string; url?: string }) =>
-                  p.type === "file" && !!p.mediaType?.startsWith("image/") && !!p.url,
-              )
-              .map((p: { url?: string }) => p.url as string) ?? []) as string[];
+          const lastUserImages: string[] = (
+            (lastUser?.parts ?? []) as Array<{ type: string; mediaType?: string; url?: string }>
+          )
+            .filter((p) => p.type === "file" && !!p.mediaType?.startsWith("image/") && !!p.url)
+            .map((p) => p.url as string);
+
 
           if (!conversationId) {
             const title = (lastUserText || "Image question").slice(0, 60) || "New chat";
