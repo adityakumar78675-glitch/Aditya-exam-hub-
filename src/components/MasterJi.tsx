@@ -188,19 +188,38 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isStreaming]);
 
+  function readAsDataUrl(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result));
+      r.onerror = () => reject(r.error);
+      r.readAsDataURL(file);
+    });
+  }
+
   async function uploadFiles(files: FileList | File[]) {
     if (!user) return;
-    const list = Array.from(files).filter((f) => /image\/(jpeg|jpg|png|webp)/i.test(f.type));
+    const list = Array.from(files).filter(
+      (f) => /image\/(jpeg|jpg|png|webp)/i.test(f.type) || f.type === "application/pdf",
+    );
     if (list.length === 0) {
-      toast.error("Only JPG, PNG or WEBP images are supported");
+      toast.error("Only JPG, PNG, WEBP images or PDF files are supported");
       return;
     }
     setUploading(true);
     try {
       const uploaded: Attachment[] = [];
       for (const file of list) {
-        if (file.size > 8 * 1024 * 1024) {
-          toast.error(`${file.name} exceeds 8MB`);
+        const isPdf = file.type === "application/pdf";
+        const limit = isPdf ? 15 * 1024 * 1024 : 8 * 1024 * 1024;
+        if (file.size > limit) {
+          toast.error(`${file.name} exceeds ${isPdf ? "15MB" : "8MB"}`);
+          continue;
+        }
+        if (isPdf) {
+          // PDFs are sent inline (base64) so the model can read the document text
+          const dataUrl = await readAsDataUrl(file);
+          uploaded.push({ url: dataUrl, mediaType: file.type, name: file.name });
           continue;
         }
         const ext = file.name.split(".").pop() || "png";
@@ -225,6 +244,57 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
       setUploading(false);
     }
   }
+
+  function send(text: string, files: Attachment[]) {
+    const fileParts = files.map((a) => ({
+      type: "file" as const,
+      mediaType: a.mediaType,
+      url: a.url,
+      filename: a.name,
+    }));
+    const fallback = files.some((f) => f.mediaType === "application/pdf")
+      ? "Please read the attached document and explain / summarise it."
+      : "Please read the image(s) and solve/explain step by step.";
+    return sendMessage({
+      text: text || fallback,
+      files: fileParts.length ? fileParts : undefined,
+    });
+  }
+
+  function toggleMic() {
+    if (listening) {
+      sttRef.current?.stop();
+      return;
+    }
+    if (!sttAvailable()) {
+      toast.error("Voice input is not supported in this browser. Try Chrome.");
+      return;
+    }
+    ttsStop();
+    setSpeakingId(null);
+    setListening(true);
+    setVoiceMode(true);
+    const handle = startListening({
+      onPartial: (t) => setInput(t),
+      onFinal: (t) => {
+        setInput("");
+        void send(t, attachments);
+        setAttachments([]);
+      },
+      onError: (msg) => toast.error(msg),
+      onEnd: () => {
+        setListening(false);
+        sttRef.current = null;
+      },
+    });
+    if (!handle) {
+      setListening(false);
+      toast.error("Could not start the microphone.");
+      return;
+    }
+    sttRef.current = handle;
+  }
+
 
   async function onSubmit(e?: React.FormEvent) {
     e?.preventDefault();
