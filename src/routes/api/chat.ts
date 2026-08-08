@@ -88,11 +88,18 @@ export const Route = createFileRoute("/api/chat")({
               ?.map((p) => (p.type === "text" ? p.text : ""))
               .join(" ")
               .trim() ?? "";
-          const lastUserImages: string[] = (
-            (lastUser?.parts ?? []) as Array<{ type: string; mediaType?: string; url?: string }>
-          )
-            .filter((p) => p.type === "file" && !!p.mediaType?.startsWith("image/") && !!p.url)
+          const lastUserFiles = (
+            (lastUser?.parts ?? []) as Array<{
+              type: string;
+              mediaType?: string;
+              url?: string;
+              filename?: string;
+            }>
+          ).filter((p) => p.type === "file" && !!p.url);
+          const lastUserImages: string[] = lastUserFiles
+            .filter((p) => !!p.mediaType?.startsWith("image/"))
             .map((p) => p.url as string);
+          const lastUserDocs = lastUserFiles.filter((p) => !p.mediaType?.startsWith("image/"));
 
 
           if (!conversationId) {
