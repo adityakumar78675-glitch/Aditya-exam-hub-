@@ -606,7 +606,14 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
               <div className="flex flex-wrap gap-2">
                 {attachments.map((a, i) => (
                   <div key={i} className="relative">
-                    <img src={a.url} alt={a.name} className="size-16 object-cover rounded-lg border border-border" />
+                    {a.mediaType === "application/pdf" ? (
+                      <div className="h-16 max-w-44 px-3 rounded-lg border border-border bg-background flex items-center gap-2">
+                        <FileText className="size-4 text-primary shrink-0" />
+                        <span className="text-xs truncate">{a.name}</span>
+                      </div>
+                    ) : (
+                      <img src={a.url} alt={a.name} className="size-16 object-cover rounded-lg border border-border" />
+                    )}
                     <button
                       type="button"
                       onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
