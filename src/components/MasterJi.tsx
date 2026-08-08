@@ -499,6 +499,17 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
                                 />
                               );
                             }
+                            if (p.type === "file") {
+                              return (
+                                <div
+                                  key={i}
+                                  className="flex items-center gap-2 rounded-lg bg-primary-foreground/15 px-3 py-2 text-xs"
+                                >
+                                  <FileText className="size-4 shrink-0" />
+                                  <span className="truncate">{p.filename ?? "Document"}</span>
+                                </div>
+                              );
+                            }
                             return null;
                           })}
                           {text && <div className="whitespace-pre-wrap break-words">{text}</div>}
