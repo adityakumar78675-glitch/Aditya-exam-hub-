@@ -25,9 +25,12 @@ import {
   Square,
   Pencil,
   Search,
+  Mic,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { speak, ttsAvailable, ttsPause, ttsResume, ttsStop } from "@/lib/tts";
+import { sttAvailable, startListening, type SttHandle } from "@/lib/speech";
 
 type Conversation = { id: string; title: string; updated_at: string };
 type DBMessage = { id: string; role: string; content: string; created_at: string };
@@ -65,8 +68,12 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [speakPaused, setSpeakPaused] = useState(false);
   const [rate, setRate] = useState(1);
+  const [listening, setListening] = useState(false);
+  const [voiceMode, setVoiceMode] = useState(false);
+  const sttRef = useRef<SttHandle | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
   const conversationIdRef = useRef<string | null>(null);
   conversationIdRef.current = activeId;
 
@@ -94,7 +101,25 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
     messages: initialMessages,
     transport,
     onError: (e) => toast.error(e.message || "Master Ji is unavailable"),
-    onFinish: () => loadConversations(),
+    onFinish: ({ message }) => {
+      loadConversations();
+      // Two-way voice conversation: speak the reply when the question came by voice
+      if (voiceMode && ttsAvailable()) {
+        const text = message.parts?.map((p) => (p.type === "text" ? p.text : "")).join("") ?? "";
+        if (text.trim()) {
+
+          setSpeakingId(message.id);
+          setSpeakPaused(false);
+          speak(text, {
+            rate,
+            onEnd: () => {
+              setSpeakingId(null);
+              setSpeakPaused(false);
+            },
+          });
+        }
+      }
+    },
   });
 
   const isStreaming = status === "streaming" || status === "submitted";
@@ -162,19 +187,38 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isStreaming]);
 
+  function readAsDataUrl(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result));
+      r.onerror = () => reject(r.error);
+      r.readAsDataURL(file);
+    });
+  }
+
   async function uploadFiles(files: FileList | File[]) {
     if (!user) return;
-    const list = Array.from(files).filter((f) => /image\/(jpeg|jpg|png|webp)/i.test(f.type));
+    const list = Array.from(files).filter(
+      (f) => /image\/(jpeg|jpg|png|webp)/i.test(f.type) || f.type === "application/pdf",
+    );
     if (list.length === 0) {
-      toast.error("Only JPG, PNG or WEBP images are supported");
+      toast.error("Only JPG, PNG, WEBP images or PDF files are supported");
       return;
     }
     setUploading(true);
     try {
       const uploaded: Attachment[] = [];
       for (const file of list) {
-        if (file.size > 8 * 1024 * 1024) {
-          toast.error(`${file.name} exceeds 8MB`);
+        const isPdf = file.type === "application/pdf";
+        const limit = isPdf ? 15 * 1024 * 1024 : 8 * 1024 * 1024;
+        if (file.size > limit) {
+          toast.error(`${file.name} exceeds ${isPdf ? "15MB" : "8MB"}`);
+          continue;
+        }
+        if (isPdf) {
+          // PDFs are sent inline (base64) so the model can read the document text
+          const dataUrl = await readAsDataUrl(file);
+          uploaded.push({ url: dataUrl, mediaType: file.type, name: file.name });
           continue;
         }
         const ext = file.name.split(".").pop() || "png";
@@ -200,21 +244,66 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
     }
   }
 
+  function send(text: string, files: Attachment[]) {
+    const fileParts = files.map((a) => ({
+      type: "file" as const,
+      mediaType: a.mediaType,
+      url: a.url,
+      filename: a.name,
+    }));
+    const fallback = files.some((f) => f.mediaType === "application/pdf")
+      ? "Please read the attached document and explain / summarise it."
+      : "Please read the image(s) and solve/explain step by step.";
+    return sendMessage({
+      text: text || fallback,
+      files: fileParts.length ? fileParts : undefined,
+    });
+  }
+
+  function toggleMic() {
+    if (listening) {
+      sttRef.current?.stop();
+      return;
+    }
+    if (!sttAvailable()) {
+      toast.error("Voice input is not supported in this browser. Try Chrome.");
+      return;
+    }
+    ttsStop();
+    setSpeakingId(null);
+    setListening(true);
+    setVoiceMode(true);
+    const handle = startListening({
+      onPartial: (t) => setInput(t),
+      onFinal: (t) => {
+        setInput("");
+        void send(t, attachments);
+        setAttachments([]);
+      },
+      onError: (msg) => toast.error(msg),
+      onEnd: () => {
+        setListening(false);
+        sttRef.current = null;
+      },
+    });
+    if (!handle) {
+      setListening(false);
+      toast.error("Could not start the microphone.");
+      return;
+    }
+    sttRef.current = handle;
+  }
+
+
   async function onSubmit(e?: React.FormEvent) {
     e?.preventDefault();
     const text = input.trim();
     if ((!text && attachments.length === 0) || isStreaming) return;
     setInput("");
-    const files = attachments.map((a) => ({
-      type: "file" as const,
-      mediaType: a.mediaType,
-      url: a.url,
-    }));
+    setVoiceMode(false);
+    const files = attachments;
     setAttachments([]);
-    await sendMessage({
-      text: text || "Please read the image(s) and solve/explain step by step.",
-      files: files.length ? files : undefined,
-    });
+    await send(text, files);
     setTimeout(() => {
       if (!conversationIdRef.current) {
         supabase
@@ -410,6 +499,17 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
                                 />
                               );
                             }
+                            if (p.type === "file") {
+                              return (
+                                <div
+                                  key={i}
+                                  className="flex items-center gap-2 rounded-lg bg-primary-foreground/15 px-3 py-2 text-xs"
+                                >
+                                  <FileText className="size-4 shrink-0" />
+                                  <span className="truncate">{p.filename ?? "Document"}</span>
+                                </div>
+                              );
+                            }
                             return null;
                           })}
                           {text && <div className="whitespace-pre-wrap break-words">{text}</div>}
@@ -516,7 +616,14 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
               <div className="flex flex-wrap gap-2">
                 {attachments.map((a, i) => (
                   <div key={i} className="relative">
-                    <img src={a.url} alt={a.name} className="size-16 object-cover rounded-lg border border-border" />
+                    {a.mediaType === "application/pdf" ? (
+                      <div className="h-16 max-w-44 px-3 rounded-lg border border-border bg-background flex items-center gap-2">
+                        <FileText className="size-4 text-primary shrink-0" />
+                        <span className="text-xs truncate">{a.name}</span>
+                      </div>
+                    ) : (
+                      <img src={a.url} alt={a.name} className="size-16 object-cover rounded-lg border border-border" />
+                    )}
                     <button
                       type="button"
                       onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
@@ -552,6 +659,17 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
                   e.target.value = "";
                 }}
               />
+              <input
+                ref={pdfInputRef}
+                type="file"
+                accept="application/pdf"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files) uploadFiles(e.target.files);
+                  e.target.value = "";
+                }}
+              />
               <Button
                 type="button"
                 size="icon"
@@ -572,6 +690,27 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
               >
                 <Camera className="size-4" />
               </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                disabled={uploading || isStreaming}
+                onClick={() => pdfInputRef.current?.click()}
+                aria-label="Attach PDF"
+              >
+                <FileText className="size-4" />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant={listening ? "destructive" : "ghost"}
+                disabled={isStreaming}
+                onClick={toggleMic}
+                aria-label={listening ? "Stop listening" : "Speak your question"}
+                className={listening ? "animate-pulse" : ""}
+              >
+                <Mic className="size-4" />
+              </Button>
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -582,7 +721,11 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
                   }
                 }}
                 rows={1}
-                placeholder="Ask Master Ji anything or attach a photo..."
+                placeholder={
+                  listening
+                    ? "Listening... boliye 🎤"
+                    : "Ask Master Ji, speak 🎤, or attach a photo / PDF..."
+                }
                 className="flex-1 resize-none rounded-2xl border border-border bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary max-h-40"
                 disabled={isStreaming}
               />

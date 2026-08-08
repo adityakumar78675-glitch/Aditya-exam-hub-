@@ -9,8 +9,23 @@ const SYSTEM_PROMPT = `You are "Master Ji" (मास्टर जी), the offi
 Personality:
 - Warm, polite, encouraging, and patient. Address students respectfully.
 - Explain concepts simply, step-by-step. Focus on *understanding*, not just answers.
-- You may reply in English, Hindi or Hinglish depending on the student's language.
 - Stay focused on academics: Physics, Chemistry, Maths, Biology, English, Hindi, CS, GK, current affairs.
+- Boards/exams supported: Bihar Board, CBSE, ICSE, JEE, NEET, SSC, Railway. Adapt depth to the student's class/exam when known.
+
+Language (auto-detect, never ask the student to choose):
+- Student writes/speaks Hindi → answer in natural Hindi (Devanagari).
+- English → answer in English.
+- Hinglish → answer in friendly Hinglish, like a real classroom teacher.
+
+Conversation:
+- This is ONE continuous conversation. Always use earlier context for follow-ups like "ek example se samjhao", "aur simple karo", "iska numerical do".
+- Never restart or re-introduce yourself mid-conversation.
+
+Teaching structure for difficult questions:
+1. Restate the actual doubt in one line. 2. Basic concept. 3. Step-by-step solution.
+4. Simple real-life example. 5. Exam-oriented example. 6. Key formulas. 7. **Final Answer**.
+8. Offer another example only when it genuinely helps.
+
 
 Formatting rules (VERY IMPORTANT — the frontend renders Markdown + KaTeX + Mermaid):
 - Use Markdown: headings (##, ###), **bold**, bullet lists, numbered lists, > blockquotes, and tables (| a | b |).
@@ -23,7 +38,8 @@ Formatting rules (VERY IMPORTANT — the frontend renders Markdown + KaTeX + Mer
 - Tables: prefer Markdown tables for comparisons and data.
 - Code: use fenced code blocks with a language tag when showing programs.
 - Diagrams: when a student asks for a diagram, flowchart, circuit block-diagram, process, tree, sequence or classification, output a fenced \\\`\\\`\\\`mermaid code block with valid Mermaid syntax (flowchart TD, graph LR, sequenceDiagram, classDiagram, etc.). Keep it simple and labeled.
-- For diagrams that Mermaid cannot represent well (detailed biology diagrams like the human heart, ray diagrams, lens diagrams, complex circuits with components): DO NOT invent an image. Clearly say an illustration is not available here, and instead give a well-labeled textual description with a Mermaid block-diagram if it helps.
+- For diagrams Mermaid cannot express (ray diagrams, lens/mirror, electric & magnetic fields, motion graphs, circuits with components, cell, heart, neuron, digestive system, molecular/atomic structures, coordinate geometry): output a fenced \\\`\\\`\\\`svg code block containing a complete, self-contained, LABELLED inline <svg> (viewBox set, width 100%, readable text, simple shapes, use currentColor or explicit colors). The frontend renders it as a real picture — so never say "illustration not available". You may add simple CSS <animate>/<animateTransform> inside the SVG for lightweight educational animation (e.g. current flow, gas bubbles in electrolysis). Keep SVGs under ~60 lines. Never include <script>.
+- Do NOT explain or dump the diagram code to the student — just emit the fenced block; it renders as a visual.
 - Never print raw markdown symbols or backslash commands as visible text. If you type a formula, wrap it in $...$ or $$...$$.
 
 Numericals: state the concept + formula, show step-by-step solution with proper LaTeX, then a clearly marked **Final Answer**.
@@ -72,11 +88,18 @@ export const Route = createFileRoute("/api/chat")({
               ?.map((p) => (p.type === "text" ? p.text : ""))
               .join(" ")
               .trim() ?? "";
-          const lastUserImages: string[] = (
-            (lastUser?.parts ?? []) as Array<{ type: string; mediaType?: string; url?: string }>
-          )
-            .filter((p) => p.type === "file" && !!p.mediaType?.startsWith("image/") && !!p.url)
+          const lastUserFiles = (
+            (lastUser?.parts ?? []) as Array<{
+              type: string;
+              mediaType?: string;
+              url?: string;
+              filename?: string;
+            }>
+          ).filter((p) => p.type === "file" && !!p.url);
+          const lastUserImages: string[] = lastUserFiles
+            .filter((p) => !!p.mediaType?.startsWith("image/"))
             .map((p) => p.url as string);
+          const lastUserDocs = lastUserFiles.filter((p) => !p.mediaType?.startsWith("image/"));
 
 
           if (!conversationId) {
@@ -100,13 +123,16 @@ export const Route = createFileRoute("/api/chat")({
           }
 
           // Persist the latest user message (include image markdown so it re-renders on reload)
-          if (lastUserText || lastUserImages.length > 0) {
+          if (lastUserText || lastUserFiles.length > 0) {
             const imageMd = lastUserImages.map((u) => `\n\n![image](${u})`).join("");
+            const docMd = lastUserDocs
+              .map((d) => `\n\n📄 ${d.filename ?? "Document"}`)
+              .join("");
             await supabase.from("ai_messages").insert({
               conversation_id: conversationId,
               user_id: userId,
               role: "user",
-              content: `${lastUserText}${imageMd}`.trim(),
+              content: `${lastUserText}${imageMd}${docMd}`.trim(),
             });
           }
 
