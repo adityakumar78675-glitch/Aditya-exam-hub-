@@ -301,16 +301,10 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
     const text = input.trim();
     if ((!text && attachments.length === 0) || isStreaming) return;
     setInput("");
-    const files = attachments.map((a) => ({
-      type: "file" as const,
-      mediaType: a.mediaType,
-      url: a.url,
-    }));
+    setVoiceMode(false);
+    const files = attachments;
     setAttachments([]);
-    await sendMessage({
-      text: text || "Please read the image(s) and solve/explain step by step.",
-      files: files.length ? files : undefined,
-    });
+    await send(text, files);
     setTimeout(() => {
       if (!conversationIdRef.current) {
         supabase
