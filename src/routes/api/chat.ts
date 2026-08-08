@@ -123,13 +123,16 @@ export const Route = createFileRoute("/api/chat")({
           }
 
           // Persist the latest user message (include image markdown so it re-renders on reload)
-          if (lastUserText || lastUserImages.length > 0) {
+          if (lastUserText || lastUserFiles.length > 0) {
             const imageMd = lastUserImages.map((u) => `\n\n![image](${u})`).join("");
+            const docMd = lastUserDocs
+              .map((d) => `\n\n📄 ${d.filename ?? "Document"}`)
+              .join("");
             await supabase.from("ai_messages").insert({
               conversation_id: conversationId,
               user_id: userId,
               role: "user",
-              content: `${lastUserText}${imageMd}`.trim(),
+              content: `${lastUserText}${imageMd}${docMd}`.trim(),
             });
           }
 
