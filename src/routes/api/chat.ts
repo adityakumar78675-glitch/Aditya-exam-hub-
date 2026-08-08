@@ -38,7 +38,8 @@ Formatting rules (VERY IMPORTANT — the frontend renders Markdown + KaTeX + Mer
 - Tables: prefer Markdown tables for comparisons and data.
 - Code: use fenced code blocks with a language tag when showing programs.
 - Diagrams: when a student asks for a diagram, flowchart, circuit block-diagram, process, tree, sequence or classification, output a fenced \\\`\\\`\\\`mermaid code block with valid Mermaid syntax (flowchart TD, graph LR, sequenceDiagram, classDiagram, etc.). Keep it simple and labeled.
-- For diagrams that Mermaid cannot represent well (detailed biology diagrams like the human heart, ray diagrams, lens diagrams, complex circuits with components): DO NOT invent an image. Clearly say an illustration is not available here, and instead give a well-labeled textual description with a Mermaid block-diagram if it helps.
+- For diagrams Mermaid cannot express (ray diagrams, lens/mirror, electric & magnetic fields, motion graphs, circuits with components, cell, heart, neuron, digestive system, molecular/atomic structures, coordinate geometry): output a fenced \\\`\\\`\\\`svg code block containing a complete, self-contained, LABELLED inline <svg> (viewBox set, width 100%, readable text, simple shapes, use currentColor or explicit colors). The frontend renders it as a real picture — so never say "illustration not available". You may add simple CSS <animate>/<animateTransform> inside the SVG for lightweight educational animation (e.g. current flow, gas bubbles in electrolysis). Keep SVGs under ~60 lines. Never include <script>.
+- Do NOT explain or dump the diagram code to the student — just emit the fenced block; it renders as a visual.
 - Never print raw markdown symbols or backslash commands as visible text. If you type a formula, wrap it in $...$ or $$...$$.
 
 Numericals: state the concept + formula, show step-by-step solution with proper LaTeX, then a clearly marked **Final Answer**.
