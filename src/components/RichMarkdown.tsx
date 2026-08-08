@@ -48,6 +48,25 @@ function MermaidBlock({ code }: { code: string }) {
   return <div ref={ref} className="my-3 flex justify-center [&_svg]:max-w-full [&_svg]:h-auto" />;
 }
 
+/** Very small allowlist sanitizer for AI-produced SVG/HTML diagrams. */
+function sanitizeMarkup(html: string): string {
+  return html
+    .replace(/<\s*(script|iframe|object|embed|link|meta)[\s\S]*?<\s*\/\s*\1\s*>/gi, "")
+    .replace(/<\s*(script|iframe|object|embed|link|meta)[^>]*\/?>/gi, "")
+    .replace(/\son\w+\s*=\s*"[^"]*"/gi, "")
+    .replace(/\son\w+\s*=\s*'[^']*'/gi, "")
+    .replace(/javascript:/gi, "");
+}
+
+function MarkupBlock({ code }: { code: string }) {
+  return (
+    <div
+      className="my-3 flex justify-center overflow-x-auto [&_svg]:max-w-full [&_svg]:h-auto"
+      dangerouslySetInnerHTML={{ __html: sanitizeMarkup(code) }}
+    />
+  );
+}
+
 /**
  * Normalizes AI output so LaTeX renders reliably:
  * - Converts common bracket forms \( \) and \[ \] into $ $ and $$ $$
