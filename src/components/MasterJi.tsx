@@ -68,8 +68,13 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [speakPaused, setSpeakPaused] = useState(false);
   const [rate, setRate] = useState(1);
+  const [listening, setListening] = useState(false);
+  const [voiceMode, setVoiceMode] = useState(false);
+  const sttRef = useRef<SttHandle | null>(null);
+  const spokenRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
   const conversationIdRef = useRef<string | null>(null);
   conversationIdRef.current = activeId;
 
