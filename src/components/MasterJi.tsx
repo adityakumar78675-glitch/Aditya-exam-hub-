@@ -102,7 +102,25 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
     messages: initialMessages,
     transport,
     onError: (e) => toast.error(e.message || "Master Ji is unavailable"),
-    onFinish: () => loadConversations(),
+    onFinish: ({ message }) => {
+      loadConversations();
+      // Two-way voice conversation: speak the reply when the question came by voice
+      if (voiceMode && ttsAvailable()) {
+        const text = message.parts?.map((p) => (p.type === "text" ? p.text : "")).join("") ?? "";
+        if (text.trim()) {
+          spokenRef.current = message.id;
+          setSpeakingId(message.id);
+          setSpeakPaused(false);
+          speak(text, {
+            rate,
+            onEnd: () => {
+              setSpeakingId(null);
+              setSpeakPaused(false);
+            },
+          });
+        }
+      }
+    },
   });
 
   const isStreaming = status === "streaming" || status === "submitted";
