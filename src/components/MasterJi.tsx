@@ -25,9 +25,12 @@ import {
   Square,
   Pencil,
   Search,
+  Mic,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { speak, ttsAvailable, ttsPause, ttsResume, ttsStop } from "@/lib/tts";
+import { sttAvailable, startListening, type SttHandle } from "@/lib/speech";
 
 type Conversation = { id: string; title: string; updated_at: string };
 type DBMessage = { id: string; role: string; content: string; created_at: string };
