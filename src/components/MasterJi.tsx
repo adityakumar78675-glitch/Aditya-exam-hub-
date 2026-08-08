@@ -649,6 +649,17 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
                   e.target.value = "";
                 }}
               />
+              <input
+                ref={pdfInputRef}
+                type="file"
+                accept="application/pdf"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files) uploadFiles(e.target.files);
+                  e.target.value = "";
+                }}
+              />
               <Button
                 type="button"
                 size="icon"
@@ -669,6 +680,27 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
               >
                 <Camera className="size-4" />
               </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                disabled={uploading || isStreaming}
+                onClick={() => pdfInputRef.current?.click()}
+                aria-label="Attach PDF"
+              >
+                <FileText className="size-4" />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant={listening ? "destructive" : "ghost"}
+                disabled={isStreaming}
+                onClick={toggleMic}
+                aria-label={listening ? "Stop listening" : "Speak your question"}
+                className={listening ? "animate-pulse" : ""}
+              >
+                <Mic className="size-4" />
+              </Button>
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -679,7 +711,11 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
                   }
                 }}
                 rows={1}
-                placeholder="Ask Master Ji anything or attach a photo..."
+                placeholder={
+                  listening
+                    ? "Listening... boliye 🎤"
+                    : "Ask Master Ji, speak 🎤, or attach a photo / PDF..."
+                }
                 className="flex-1 resize-none rounded-2xl border border-border bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary max-h-40"
                 disabled={isStreaming}
               />
