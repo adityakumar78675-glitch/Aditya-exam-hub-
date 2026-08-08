@@ -71,7 +71,6 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
   const [listening, setListening] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
   const sttRef = useRef<SttHandle | null>(null);
-  const spokenRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
@@ -108,7 +107,7 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
       if (voiceMode && ttsAvailable()) {
         const text = message.parts?.map((p) => (p.type === "text" ? p.text : "")).join("") ?? "";
         if (text.trim()) {
-          spokenRef.current = message.id;
+
           setSpeakingId(message.id);
           setSpeakPaused(false);
           speak(text, {
