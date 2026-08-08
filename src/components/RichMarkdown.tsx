@@ -99,6 +99,9 @@ export const RichMarkdown = memo(function RichMarkdown({ children }: { children:
             if (isBlock && lang === "mermaid") {
               return <MermaidBlock code={text} />;
             }
+            if (isBlock && (lang === "svg" || lang === "html")) {
+              return <MarkupBlock code={text} />;
+            }
             if (isBlock) {
               return (
                 <pre className="bg-muted p-3 rounded-lg overflow-x-auto my-2">
