@@ -840,6 +840,216 @@ export type Database = {
           },
         ]
       }
+      test_attempts: {
+        Row: {
+          answers: Json
+          correct_count: number | null
+          created_at: string
+          expires_at: string
+          id: string
+          incorrect_count: number | null
+          marked: Json
+          question_order: string[]
+          score: number | null
+          started_at: string
+          student_id: string
+          submitted_at: string | null
+          test_id: string
+          time_taken_seconds: number | null
+          total_marks: number | null
+          unattempted_count: number | null
+          updated_at: string
+        }
+        Insert: {
+          answers?: Json
+          correct_count?: number | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          incorrect_count?: number | null
+          marked?: Json
+          question_order?: string[]
+          score?: number | null
+          started_at?: string
+          student_id: string
+          submitted_at?: string | null
+          test_id: string
+          time_taken_seconds?: number | null
+          total_marks?: number | null
+          unattempted_count?: number | null
+          updated_at?: string
+        }
+        Update: {
+          answers?: Json
+          correct_count?: number | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          incorrect_count?: number | null
+          marked?: Json
+          question_order?: string[]
+          score?: number | null
+          started_at?: string
+          student_id?: string
+          submitted_at?: string | null
+          test_id?: string
+          time_taken_seconds?: number | null
+          total_marks?: number | null
+          unattempted_count?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_attempts_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      test_questions: {
+        Row: {
+          correct_bool: boolean | null
+          correct_numeric: number | null
+          correct_option: number | null
+          created_at: string
+          id: string
+          image_url: string | null
+          negative_marks: number | null
+          options_en: Json
+          options_hi: Json
+          order_index: number
+          positive_marks: number | null
+          question_en: string
+          question_hi: string | null
+          solution_en: string | null
+          solution_hi: string | null
+          test_id: string
+          type: Database["public"]["Enums"]["question_type"]
+          updated_at: string
+        }
+        Insert: {
+          correct_bool?: boolean | null
+          correct_numeric?: number | null
+          correct_option?: number | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          negative_marks?: number | null
+          options_en?: Json
+          options_hi?: Json
+          order_index?: number
+          positive_marks?: number | null
+          question_en: string
+          question_hi?: string | null
+          solution_en?: string | null
+          solution_hi?: string | null
+          test_id: string
+          type?: Database["public"]["Enums"]["question_type"]
+          updated_at?: string
+        }
+        Update: {
+          correct_bool?: boolean | null
+          correct_numeric?: number | null
+          correct_option?: number | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          negative_marks?: number | null
+          options_en?: Json
+          options_hi?: Json
+          order_index?: number
+          positive_marks?: number | null
+          question_en?: string
+          question_hi?: string | null
+          solution_en?: string | null
+          solution_hi?: string | null
+          test_id?: string
+          type?: Database["public"]["Enums"]["question_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "test_questions_test_id_fkey"
+            columns: ["test_id"]
+            isOneToOne: false
+            referencedRelation: "tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tests: {
+        Row: {
+          batch_id: string | null
+          created_at: string
+          duration_minutes: number
+          end_at: string | null
+          id: string
+          instructions: string | null
+          is_published: boolean
+          languages: string[]
+          leaderboard_enabled: boolean
+          negative_marks: number
+          positive_marks: number
+          randomize_options: boolean
+          randomize_questions: boolean
+          show_solutions: boolean
+          start_at: string | null
+          subject: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          batch_id?: string | null
+          created_at?: string
+          duration_minutes?: number
+          end_at?: string | null
+          id?: string
+          instructions?: string | null
+          is_published?: boolean
+          languages?: string[]
+          leaderboard_enabled?: boolean
+          negative_marks?: number
+          positive_marks?: number
+          randomize_options?: boolean
+          randomize_questions?: boolean
+          show_solutions?: boolean
+          start_at?: string | null
+          subject?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          batch_id?: string | null
+          created_at?: string
+          duration_minutes?: number
+          end_at?: string | null
+          id?: string
+          instructions?: string | null
+          is_published?: boolean
+          languages?: string[]
+          leaderboard_enabled?: boolean
+          negative_marks?: number
+          positive_marks?: number
+          randomize_options?: boolean
+          randomize_questions?: boolean
+          show_solutions?: boolean
+          start_at?: string | null
+          subject?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tests_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -902,6 +1112,7 @@ export type Database = {
         | "test_series"
         | "assignment"
         | "general"
+      question_type: "mcq" | "numerical" | "truefalse" | "subjective"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1042,6 +1253,7 @@ export const Constants = {
         "assignment",
         "general",
       ],
+      question_type: ["mcq", "numerical", "truefalse", "subjective"],
     },
   },
 } as const
