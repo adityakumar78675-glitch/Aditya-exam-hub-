@@ -58,6 +58,24 @@ export type SafeQuestion = {
 
 type AnswerValue = number | string | boolean | null;
 
+export type SolutionItem = {
+  number: number;
+  id: string;
+  type: "mcq" | "numerical" | "truefalse" | "subjective";
+  question_en: string;
+  question_hi: string | null;
+  image_url: string | null;
+  options_en: string[];
+  options_hi: string[];
+  correct_option: number | null;
+  correct_numeric: number | null;
+  correct_bool: boolean | null;
+  solution_en: string | null;
+  solution_hi: string | null;
+  your_answer: AnswerValue;
+  verdict: boolean | null;
+};
+
 /* ---------------- list tests ---------------- */
 
 export const listTests = createServerFn({ method: "GET" })
