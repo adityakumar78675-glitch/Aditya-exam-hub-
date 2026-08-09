@@ -469,7 +469,7 @@ export const getResult = createServerFn({ method: "POST" })
             verdict: isCorrect(q, answers[qid] ?? null, perm),
           };
         })
-        .filter(Boolean);
+        .filter((s): s is SolutionItem => s !== null);
     }
 
     return {
