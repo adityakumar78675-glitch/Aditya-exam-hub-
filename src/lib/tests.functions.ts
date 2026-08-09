@@ -422,7 +422,7 @@ export const getResult = createServerFn({ method: "POST" })
       rank = scores.findIndex((s) => s <= Number(attempt.score ?? 0)) + 1 || null;
     }
 
-    let solutions: unknown[] | null = null;
+    let solutions: SolutionItem[] | null = null;
     if (test.show_solutions) {
       const { data: rows } = await supabaseAdmin
         .from("test_questions")
