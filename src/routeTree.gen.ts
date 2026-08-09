@@ -30,6 +30,8 @@ import { Route as AuthenticatedTestsTestIdRouteImport } from './routes/_authenti
 import { Route as AuthenticatedLecturesLectureIdRouteImport } from './routes/_authenticated/lectures.$lectureId'
 import { Route as AuthenticatedBatchesBatchIdRouteImport } from './routes/_authenticated/batches.$batchId'
 import { Route as AuthenticatedTestsTestIdIndexRouteImport } from './routes/_authenticated/tests.$testId.index'
+import { Route as AuthenticatedTestsTestIdResultRouteImport } from './routes/_authenticated/tests.$testId.result'
+import { Route as AuthenticatedTestsTestIdAttemptRouteImport } from './routes/_authenticated/tests.$testId.attempt'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -139,6 +141,18 @@ const AuthenticatedTestsTestIdIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedTestsTestIdRoute,
   } as any)
+const AuthenticatedTestsTestIdResultRoute =
+  AuthenticatedTestsTestIdResultRouteImport.update({
+    id: '/result',
+    path: '/result',
+    getParentRoute: () => AuthenticatedTestsTestIdRoute,
+  } as any)
+const AuthenticatedTestsTestIdAttemptRoute =
+  AuthenticatedTestsTestIdAttemptRouteImport.update({
+    id: '/attempt',
+    path: '/attempt',
+    getParentRoute: () => AuthenticatedTestsTestIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -160,6 +174,8 @@ export interface FileRoutesByFullPath {
   '/tests/$testId': typeof AuthenticatedTestsTestIdRouteWithChildren
   '/api/public/init-admin': typeof ApiPublicInitAdminRoute
   '/tests/': typeof AuthenticatedTestsIndexRoute
+  '/tests/$testId/attempt': typeof AuthenticatedTestsTestIdAttemptRoute
+  '/tests/$testId/result': typeof AuthenticatedTestsTestIdResultRoute
   '/tests/$testId/': typeof AuthenticatedTestsTestIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -180,6 +196,8 @@ export interface FileRoutesByTo {
   '/lectures/$lectureId': typeof AuthenticatedLecturesLectureIdRoute
   '/api/public/init-admin': typeof ApiPublicInitAdminRoute
   '/tests': typeof AuthenticatedTestsIndexRoute
+  '/tests/$testId/attempt': typeof AuthenticatedTestsTestIdAttemptRoute
+  '/tests/$testId/result': typeof AuthenticatedTestsTestIdResultRoute
   '/tests/$testId': typeof AuthenticatedTestsTestIdIndexRoute
 }
 export interface FileRoutesById {
@@ -204,6 +222,8 @@ export interface FileRoutesById {
   '/_authenticated/tests/$testId': typeof AuthenticatedTestsTestIdRouteWithChildren
   '/api/public/init-admin': typeof ApiPublicInitAdminRoute
   '/_authenticated/tests/': typeof AuthenticatedTestsIndexRoute
+  '/_authenticated/tests/$testId/attempt': typeof AuthenticatedTestsTestIdAttemptRoute
+  '/_authenticated/tests/$testId/result': typeof AuthenticatedTestsTestIdResultRoute
   '/_authenticated/tests/$testId/': typeof AuthenticatedTestsTestIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -228,6 +248,8 @@ export interface FileRouteTypes {
     | '/tests/$testId'
     | '/api/public/init-admin'
     | '/tests/'
+    | '/tests/$testId/attempt'
+    | '/tests/$testId/result'
     | '/tests/$testId/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -248,6 +270,8 @@ export interface FileRouteTypes {
     | '/lectures/$lectureId'
     | '/api/public/init-admin'
     | '/tests'
+    | '/tests/$testId/attempt'
+    | '/tests/$testId/result'
     | '/tests/$testId'
   id:
     | '__root__'
@@ -271,6 +295,8 @@ export interface FileRouteTypes {
     | '/_authenticated/tests/$testId'
     | '/api/public/init-admin'
     | '/_authenticated/tests/'
+    | '/_authenticated/tests/$testId/attempt'
+    | '/_authenticated/tests/$testId/result'
     | '/_authenticated/tests/$testId/'
   fileRoutesById: FileRoutesById
 }
@@ -434,6 +460,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTestsTestIdIndexRouteImport
       parentRoute: typeof AuthenticatedTestsTestIdRoute
     }
+    '/_authenticated/tests/$testId/result': {
+      id: '/_authenticated/tests/$testId/result'
+      path: '/result'
+      fullPath: '/tests/$testId/result'
+      preLoaderRoute: typeof AuthenticatedTestsTestIdResultRouteImport
+      parentRoute: typeof AuthenticatedTestsTestIdRoute
+    }
+    '/_authenticated/tests/$testId/attempt': {
+      id: '/_authenticated/tests/$testId/attempt'
+      path: '/attempt'
+      fullPath: '/tests/$testId/attempt'
+      preLoaderRoute: typeof AuthenticatedTestsTestIdAttemptRouteImport
+      parentRoute: typeof AuthenticatedTestsTestIdRoute
+    }
   }
 }
 
@@ -449,11 +489,15 @@ const AuthenticatedBatchesRouteWithChildren =
   AuthenticatedBatchesRoute._addFileChildren(AuthenticatedBatchesRouteChildren)
 
 interface AuthenticatedTestsTestIdRouteChildren {
+  AuthenticatedTestsTestIdAttemptRoute: typeof AuthenticatedTestsTestIdAttemptRoute
+  AuthenticatedTestsTestIdResultRoute: typeof AuthenticatedTestsTestIdResultRoute
   AuthenticatedTestsTestIdIndexRoute: typeof AuthenticatedTestsTestIdIndexRoute
 }
 
 const AuthenticatedTestsTestIdRouteChildren: AuthenticatedTestsTestIdRouteChildren =
   {
+    AuthenticatedTestsTestIdAttemptRoute: AuthenticatedTestsTestIdAttemptRoute,
+    AuthenticatedTestsTestIdResultRoute: AuthenticatedTestsTestIdResultRoute,
     AuthenticatedTestsTestIdIndexRoute: AuthenticatedTestsTestIdIndexRoute,
   }
 
