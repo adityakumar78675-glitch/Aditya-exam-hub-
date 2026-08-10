@@ -325,15 +325,30 @@ function QuestionsManager({ test, onBack }: { test: TestRow; onBack: () => void 
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-3 mb-4">
+      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
         <button type="button" onClick={onBack} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="size-4" /> All tests
         </button>
-        <Button size="sm" onClick={() => setEditing(emptyQuestion(test.id, (questions?.length ?? 0) + 1))}>
-          <Plus className="size-4 mr-1" /> Add Question
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" onClick={() => setBulkOpen(true)}>
+            <Zap className="size-4 mr-1" /> Bulk Add Questions
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setEditing(emptyQuestion(test.id, (questions?.length ?? 0) + 1))}>
+            <Plus className="size-4 mr-1" /> Add Question
+          </Button>
+        </div>
       </div>
       <h2 className="font-semibold mb-3">{test.title} — Questions</h2>
+
+      <BulkQuestionsDialog
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        testId={test.id}
+        defaultPositive={test.positive_marks}
+        defaultNegative={test.negative_marks}
+        onImported={() => qc.invalidateQueries({ queryKey: ["admin-test-questions", test.id] })}
+      />
+
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading...</p>
