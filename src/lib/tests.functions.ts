@@ -704,7 +704,7 @@ Rules:
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: "google/gemini-3-flash",
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: "You are an expert exam question setter. Always reply with valid JSON only." },
           { role: "user", content: prompt },
