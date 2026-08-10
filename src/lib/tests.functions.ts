@@ -580,3 +580,159 @@ export const adminDeleteQuestion = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+/* ---------------- bulk import ---------------- */
+
+export type BulkQuestionInput = {
+  question_en: string;
+  options_en: string[];
+  correct_option: number;
+  positive_marks?: number | null;
+  negative_marks?: number | null;
+  solution_en?: string | null;
+  image_url?: string | null;
+};
+
+export const adminBulkInsertQuestions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { testId: string; questions: BulkQuestionInput[] }) => d)
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase as never, context.userId);
+    if (!data.questions.length) throw new Error("No questions to import");
+    if (data.questions.length > 1000) throw new Error("Maximum 1000 questions per import");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: existing } = await supabaseAdmin
+      .from("test_questions")
+      .select("order_index")
+      .eq("test_id", data.testId)
+      .order("order_index", { ascending: false })
+      .limit(1);
+    let next = (existing?.[0]?.order_index ?? 0) + 1;
+
+    const rows = data.questions.map((q) => {
+      const opts = q.options_en.map((o) => String(o ?? "").trim());
+      if (!q.question_en.trim()) throw new Error("A question has no text");
+      if (opts.length < 2 || opts.some((o) => !o)) throw new Error("A question has empty options");
+      if (q.correct_option < 0 || q.correct_option >= opts.length) throw new Error("A question has an invalid answer");
+      return {
+        test_id: data.testId,
+        order_index: next++,
+        type: "mcq" as const,
+        question_en: q.question_en.trim(),
+        options_en: opts,
+        options_hi: [],
+        correct_option: q.correct_option,
+        solution_en: q.solution_en?.trim() || null,
+        image_url: q.image_url?.trim() || null,
+        positive_marks: q.positive_marks ?? null,
+        negative_marks: q.negative_marks ?? null,
+      };
+    });
+
+    for (let i = 0; i < rows.length; i += 200) {
+      const { error } = await supabaseAdmin.from("test_questions").insert(rows.slice(i, i + 200));
+      if (error) throw new Error(error.message);
+    }
+    return { inserted: rows.length };
+  });
+
+/* ---------------- question image upload ---------------- */
+
+export const adminUploadQuestionImage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { fileName: string; contentType: string; dataBase64: string }) => d)
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase as never, context.userId);
+    if (!data.contentType.startsWith("image/")) throw new Error("Only image files are allowed");
+    const bytes = Buffer.from(data.dataBase64, "base64");
+    if (bytes.byteLength > 10 * 1024 * 1024) throw new Error("Image must be under 10MB");
+
+    const safe = data.fileName.replace(/[^\w.\-]/g, "_").slice(-60);
+    const path = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${safe}`;
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.storage
+      .from("question-images")
+      .upload(path, bytes, { contentType: data.contentType, upsert: false });
+    if (error) throw new Error(error.message);
+
+    const { data: signed, error: signErr } = await supabaseAdmin.storage
+      .from("question-images")
+      .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+    if (signErr || !signed) throw new Error(signErr?.message ?? "Could not create image URL");
+    return { url: signed.signedUrl };
+  });
+
+/* ---------------- AI question generator ---------------- */
+
+export const adminGenerateQuestions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (d: {
+      subject: string;
+      chapter?: string;
+      count: number;
+      difficulty: string;
+      language: string;
+      exam?: string;
+      positive_marks?: number | null;
+      negative_marks?: number | null;
+    }) => d,
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase as never, context.userId);
+    const apiKey = process.env['LOVABLE_API_KEY'];
+    if (!apiKey) throw new Error("AI is not configured");
+
+    const count = Math.max(1, Math.min(30, Number(data.count) || 5));
+    const prompt = `Generate ${count} multiple-choice questions.
+Subject: ${data.subject}
+Chapter/Topic: ${data.chapter || "any relevant topic"}
+Difficulty: ${data.difficulty}
+Language: ${data.language}
+Board/Exam: ${data.exam || "general school exam"}
+
+Rules:
+- Exactly 4 options per question.
+- "answer" is the 0-based index of the correct option.
+- Include a short "explanation".
+- Use $...$ LaTeX for any math.
+- Return ONLY JSON: {"questions":[{"question":"...","options":["","","",""],"answer":0,"explanation":"..."}]}`;
+
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: "You are an expert exam question setter. Always reply with valid JSON only." },
+          { role: "user", content: prompt },
+        ],
+      }),
+    });
+    if (res.status === 429) throw new Error("AI rate limit reached. Please try again shortly.");
+    if (res.status === 402) throw new Error("AI credits exhausted. Please add credits to continue.");
+    if (!res.ok) throw new Error(`AI request failed [${res.status}]: ${await res.text()}`);
+
+    const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+    const text = json.choices?.[0]?.message?.content ?? "";
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error("AI returned an unexpected response. Try again.");
+    let parsed: { questions?: { question?: string; options?: string[]; answer?: number; explanation?: string }[] };
+    try {
+      parsed = JSON.parse(match[0]);
+    } catch {
+      throw new Error("AI returned invalid JSON. Try again.");
+    }
+
+    return (parsed.questions ?? []).slice(0, count).map((q) => ({
+      question_en: String(q.question ?? "").trim(),
+      options_en: (q.options ?? []).slice(0, 4).map((o) => String(o ?? "").trim()),
+      correct_option: typeof q.answer === "number" ? q.answer : null,
+      solution_en: q.explanation ? String(q.explanation) : null,
+      positive_marks: data.positive_marks ?? null,
+      negative_marks: data.negative_marks ?? null,
+      image_url: null,
+    }));
+  });
