@@ -93,8 +93,9 @@ export const listTests = createServerFn({ method: "GET" })
 
     const { data: attempts } = await supabase
       .from("test_attempts")
-      .select("test_id, submitted_at, score, total_marks")
-      .eq("student_id", userId);
+      .select("test_id, attempt_number, submitted_at, score, total_marks")
+      .eq("student_id", userId)
+      .order("attempt_number", { ascending: true });
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const ids = (tests ?? []).map((t) => t.id);
@@ -105,11 +106,21 @@ export const listTests = createServerFn({ method: "GET" })
     }
 
     return (tests ?? []).map((t) => {
-      const a = (attempts ?? []).find((x) => x.test_id === t.id) ?? null;
+      const mine = (attempts ?? []).filter((x) => x.test_id === t.id);
+      const submitted = mine.filter((x) => x.submitted_at);
+      const active = mine.find((x) => !x.submitted_at) ?? null;
+      const best = submitted.length
+        ? submitted.reduce((b, a) => (Number(a.score ?? 0) > Number(b.score ?? 0) ? a : b))
+        : null;
       return {
         ...t,
         question_count: counts[t.id] ?? 0,
-        attempt: a ? { submitted: !!a.submitted_at, score: a.score, total_marks: a.total_marks } : null,
+        attempt_count: submitted.length,
+        attempt: best
+          ? { submitted: true, score: best.score, total_marks: best.total_marks }
+          : active
+            ? { submitted: false, score: null, total_marks: null }
+            : null,
       };
     });
   });
