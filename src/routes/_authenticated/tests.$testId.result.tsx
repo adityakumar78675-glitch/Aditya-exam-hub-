@@ -1,8 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { getResult } from "@/lib/tests.functions";
+import { toast } from "sonner";
+import { getResult, startAttempt } from "@/lib/tests.functions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,10 @@ import { CheckCircle2, XCircle, MinusCircle, Clock, Trophy, Target } from "lucid
 
 export const Route = createFileRoute("/_authenticated/tests/$testId/result")({
   component: ResultPage,
+  validateSearch: (s: Record<string, unknown>) => ({
+    attempt: s['attempt'] ? Number(s['attempt']) : undefined,
+    solutions: s['solutions'] ? true : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Test Result | Aditya Exam Hub" },
@@ -28,15 +33,30 @@ export const Route = createFileRoute("/_authenticated/tests/$testId/result")({
 
 function ResultPage() {
   const { testId } = Route.useParams();
+  const search = Route.useSearch();
+  const navigate = useNavigate();
   const fetchResult = useServerFn(getResult);
-  const [tab, setTab] = useState<"summary" | "solutions">("summary");
+  const start = useServerFn(startAttempt);
+  const [busy, setBusy] = useState(false);
+  const [tab, setTab] = useState<"summary" | "solutions">(search.solutions ? "solutions" : "summary");
   const [lang, setLang] = useState<"en" | "hi">("en");
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["test-result", testId],
-    queryFn: () => fetchResult({ data: { testId } }),
+    queryKey: ["test-result", testId, search.attempt ?? "latest"],
+    queryFn: () => fetchResult({ data: { testId, attemptNumber: search.attempt } }),
     retry: false,
   });
+
+  const onRetake = async () => {
+    setBusy(true);
+    try {
+      await start({ data: { testId } });
+      navigate({ to: "/tests/$testId/attempt", params: { testId } });
+    } catch (e) {
+      toast.error((e as Error).message || "Could not start a new attempt");
+      setBusy(false);
+    }
+  };
 
   if (isLoading) {
     return (
