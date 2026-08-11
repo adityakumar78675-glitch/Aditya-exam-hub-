@@ -316,9 +316,12 @@ export const getAttemptState = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: attempt } = await supabaseAdmin
       .from("test_attempts")
-      .select("id, question_order, answers, marked, started_at, expires_at, submitted_at")
+      .select("id, attempt_number, question_order, answers, marked, started_at, expires_at, submitted_at")
       .eq("test_id", data.testId)
       .eq("student_id", userId)
+      .is("submitted_at", null)
+      .order("attempt_number", { ascending: false })
+      .limit(1)
       .maybeSingle();
     if (!attempt) return { status: "not_started" as const, test };
     if (attempt.submitted_at) return { status: "submitted" as const, test };
