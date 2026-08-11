@@ -641,6 +641,7 @@ export const getResult = createServerFn({ method: "POST" })
     return {
       test,
       attempt: {
+        attempt_number: attempt.attempt_number,
         score: Number(attempt.score ?? 0),
         total_marks: Number(attempt.total_marks ?? 0),
         correct: attempt.correct_count ?? 0,
@@ -649,10 +650,15 @@ export const getResult = createServerFn({ method: "POST" })
         time_taken_seconds: attempt.time_taken_seconds ?? 0,
         submitted_at: attempt.submitted_at,
       },
+      history,
+      best: bestStats,
+      canStartNew,
+      attemptLimit: limit,
       rank,
       totalParticipants,
       solutions,
     };
+  });
   });
 
 /* ---------------- admin ---------------- */
