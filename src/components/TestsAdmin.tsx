@@ -33,6 +33,9 @@ type TestRow = {
   start_at: string | null;
   end_at: string | null;
   is_published: boolean;
+  allow_reattempts: boolean;
+  max_attempts: number | null;
+  ranking_mode: "best" | "latest" | "average";
 };
 
 const emptyTest = (): Partial<TestRow> => ({
@@ -49,6 +52,9 @@ const emptyTest = (): Partial<TestRow> => ({
   leaderboard_enabled: false,
   is_published: false,
   batch_id: null,
+  allow_reattempts: true,
+  max_attempts: null,
+  ranking_mode: "best",
 });
 
 export function TestsAdmin() {
