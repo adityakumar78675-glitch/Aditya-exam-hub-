@@ -364,6 +364,7 @@ export const getAttemptState = createServerFn({ method: "POST" })
       status: "active" as const,
       test,
       attemptId: attempt.id,
+      attemptNumber: attempt.attempt_number,
       answers: (attempt.answers ?? {}) as Record<string, AnswerValue>,
       marked: (attempt.marked ?? {}) as Record<string, boolean>,
       startedAt: attempt.started_at,
@@ -386,6 +387,9 @@ export const saveAnswers = createServerFn({ method: "POST" })
       .select("id, answers, marked, submitted_at, expires_at")
       .eq("test_id", data.testId)
       .eq("student_id", userId)
+      .is("submitted_at", null)
+      .order("attempt_number", { ascending: false })
+      .limit(1)
       .maybeSingle();
     if (!attempt) throw new Error("No active attempt");
     if (attempt.submitted_at) return { ok: false, submitted: true };
@@ -443,6 +447,9 @@ export const submitTest = createServerFn({ method: "POST" })
       .select("id, question_order, answers, started_at, submitted_at")
       .eq("test_id", data.testId)
       .eq("student_id", userId)
+      .is("submitted_at", null)
+      .order("attempt_number", { ascending: false })
+      .limit(1)
       .maybeSingle();
     if (!attempt) throw new Error("No active attempt");
     if (attempt.submitted_at) return { ok: true, alreadySubmitted: true };
