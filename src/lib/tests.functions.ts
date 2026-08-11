@@ -114,6 +114,85 @@ export const listTests = createServerFn({ method: "GET" })
     });
   });
 
+/* ---------------- attempt helpers ---------------- */
+
+type AttemptRow = {
+  id: string;
+  attempt_number: number;
+  score: number | null;
+  total_marks: number | null;
+  correct_count: number | null;
+  incorrect_count: number | null;
+  unattempted_count: number | null;
+  time_taken_seconds: number | null;
+  started_at: string;
+  submitted_at: string | null;
+};
+
+export type AttemptSummary = {
+  id: string;
+  attempt_number: number;
+  score: number;
+  total_marks: number;
+  percentage: number;
+  accuracy: number;
+  correct: number;
+  incorrect: number;
+  unattempted: number;
+  time_taken_seconds: number;
+  started_at: string;
+  submitted_at: string;
+};
+
+function summarize(a: AttemptRow): AttemptSummary {
+  const score = Number(a.score ?? 0);
+  const total = Number(a.total_marks ?? 0);
+  const correct = a.correct_count ?? 0;
+  const incorrect = a.incorrect_count ?? 0;
+  const attempted = correct + incorrect;
+  return {
+    id: a.id,
+    attempt_number: a.attempt_number,
+    score,
+    total_marks: total,
+    percentage: total ? Math.round((score / total) * 1000) / 10 : 0,
+    accuracy: attempted ? Math.round((correct / attempted) * 100) : 0,
+    correct,
+    incorrect,
+    unattempted: a.unattempted_count ?? 0,
+    time_taken_seconds: a.time_taken_seconds ?? 0,
+    started_at: a.started_at,
+    submitted_at: a.submitted_at ?? "",
+  };
+}
+
+const ATTEMPT_COLS =
+  "id, attempt_number, score, total_marks, correct_count, incorrect_count, unattempted_count, time_taken_seconds, started_at, submitted_at";
+
+/** All attempts for a student on a test, oldest first. */
+async function loadAttempts(
+  admin: { from: (t: string) => any },
+  testId: string,
+  userId: string,
+): Promise<AttemptRow[]> {
+  const { data } = await admin
+    .from("test_attempts")
+    .select(ATTEMPT_COLS)
+    .eq("test_id", testId)
+    .eq("student_id", userId)
+    .order("attempt_number", { ascending: true });
+  return (data ?? []) as AttemptRow[];
+}
+
+function attemptsLeft(
+  test: { allow_reattempts: boolean | null; max_attempts: number | null },
+  submittedCount: number,
+): { canStartNew: boolean; limit: number | null } {
+  const limit = test.allow_reattempts === false ? 1 : test.max_attempts && test.max_attempts > 0 ? test.max_attempts : null;
+  if (limit === null) return { canStartNew: true, limit: null };
+  return { canStartNew: submittedCount < limit, limit };
+}
+
 /* ---------------- test meta (instructions screen) ---------------- */
 
 export const getTestMeta = createServerFn({ method: "POST" })
@@ -124,27 +203,37 @@ export const getTestMeta = createServerFn({ method: "POST" })
     const { data: test, error } = await supabase
       .from("tests")
       .select(
-        "id, title, subject, instructions, batch_id, duration_minutes, positive_marks, negative_marks, languages, start_at, end_at, show_solutions, leaderboard_enabled",
+        "id, title, subject, instructions, batch_id, duration_minutes, positive_marks, negative_marks, languages, start_at, end_at, show_solutions, leaderboard_enabled, allow_reattempts, max_attempts",
       )
       .eq("id", data.testId)
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!test) throw new Error("Test not found or not available");
 
-    const { data: attempt } = await supabase
-      .from("test_attempts")
-      .select("id, started_at, expires_at, submitted_at")
-      .eq("test_id", data.testId)
-      .eq("student_id", userId)
-      .maybeSingle();
-
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const all = await loadAttempts(supabaseAdmin as never, data.testId, userId);
+    const active = all.find((a) => !a.submitted_at) ?? null;
+    const submitted = all.filter((a) => a.submitted_at);
+    const { canStartNew, limit } = attemptsLeft(test, submitted.length);
+
     const { count } = await supabaseAdmin
       .from("test_questions")
       .select("id", { count: "exact", head: true })
       .eq("test_id", data.testId);
 
-    return { test, attempt: attempt ?? null, question_count: count ?? 0 };
+    return {
+      test,
+      attempt: active
+        ? { id: active.id, started_at: active.started_at, submitted_at: null }
+        : submitted.length
+          ? { id: submitted[submitted.length - 1]!.id, started_at: submitted[submitted.length - 1]!.started_at, submitted_at: submitted[submitted.length - 1]!.submitted_at }
+          : null,
+      hasActive: !!active,
+      attempts: submitted.map(summarize),
+      attemptLimit: limit,
+      canStartNew,
+      question_count: count ?? 0,
+    };
   });
 
 /* ---------------- start / resume attempt ---------------- */
@@ -157,7 +246,7 @@ export const startAttempt = createServerFn({ method: "POST" })
     // RLS-checked visibility of the test
     const { data: test } = await supabase
       .from("tests")
-      .select("id, duration_minutes, randomize_questions, start_at, end_at")
+      .select("id, duration_minutes, randomize_questions, start_at, end_at, allow_reattempts, max_attempts")
       .eq("id", data.testId)
       .maybeSingle();
     if (!test) throw new Error("Test not available");
@@ -166,16 +255,21 @@ export const startAttempt = createServerFn({ method: "POST" })
     if (test.end_at && now > new Date(test.end_at).getTime()) throw new Error("Test window has closed");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: existing } = await supabaseAdmin
-      .from("test_attempts")
-      .select("id, submitted_at")
-      .eq("test_id", data.testId)
-      .eq("student_id", userId)
-      .maybeSingle();
-    if (existing) {
-      if (existing.submitted_at) throw new Error("You have already submitted this test");
-      return { attemptId: existing.id };
+    const all = await loadAttempts(supabaseAdmin as never, data.testId, userId);
+    const active = all.find((a) => !a.submitted_at);
+    if (active) return { attemptId: active.id, attemptNumber: active.attempt_number, resumed: true };
+
+    const submittedCount = all.filter((a) => a.submitted_at).length;
+    const { canStartNew, limit } = attemptsLeft(test, submittedCount);
+    if (!canStartNew) {
+      throw new Error(
+        limit === 1
+          ? "You have already submitted this test"
+          : "You have reached the maximum number of attempts.",
+      );
     }
+
+    const attemptNumber = (all[all.length - 1]?.attempt_number ?? 0) + 1;
 
     const { data: qs } = await supabaseAdmin
       .from("test_questions")
@@ -184,7 +278,9 @@ export const startAttempt = createServerFn({ method: "POST" })
       .order("order_index", { ascending: true });
     let order = (qs ?? []).map((q) => q.id);
     if (!order.length) throw new Error("This test has no questions yet");
-    if (test.randomize_questions) order = seededShuffle(order, `${data.testId}:${userId}`);
+    // Fresh randomization for every attempt so previous order can't be memorised.
+    if (test.randomize_questions)
+      order = seededShuffle(order, `${data.testId}:${userId}:${attemptNumber}:${now}`);
 
     const expires = new Date(now + test.duration_minutes * 60_000).toISOString();
     const { data: created, error } = await supabaseAdmin
@@ -192,14 +288,16 @@ export const startAttempt = createServerFn({ method: "POST" })
       .insert({
         test_id: data.testId,
         student_id: userId,
+        attempt_number: attemptNumber,
         question_order: order,
         expires_at: expires,
       })
       .select("id")
       .single();
     if (error) throw new Error(error.message);
-    return { attemptId: created.id };
+    return { attemptId: created.id, attemptNumber, resumed: false };
   });
+
 
 /* ---------------- attempt state (questions, no answers) ---------------- */
 
