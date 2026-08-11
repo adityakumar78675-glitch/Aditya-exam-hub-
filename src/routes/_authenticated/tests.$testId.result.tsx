@@ -152,11 +152,47 @@ function ResultPage() {
       </div>
 
       {tab === "summary" ? (
-        <Card className="mt-4 p-6 space-y-4">
-          <Bar label="Correct" value={attempt.correct} total={attempt.correct + attempt.incorrect + attempt.unattempted} className="bg-primary" />
-          <Bar label="Incorrect" value={attempt.incorrect} total={attempt.correct + attempt.incorrect + attempt.unattempted} className="bg-destructive" />
-          <Bar label="Unattempted" value={attempt.unattempted} total={attempt.correct + attempt.incorrect + attempt.unattempted} className="bg-muted-foreground" />
-        </Card>
+        <>
+          <Card className="mt-4 p-6 space-y-4">
+            <Bar label="Correct" value={attempt.correct} total={attempt.correct + attempt.incorrect + attempt.unattempted} className="bg-primary" />
+            <Bar label="Incorrect" value={attempt.incorrect} total={attempt.correct + attempt.incorrect + attempt.unattempted} className="bg-destructive" />
+            <Bar label="Unattempted" value={attempt.unattempted} total={attempt.correct + attempt.incorrect + attempt.unattempted} className="bg-muted-foreground" />
+          </Card>
+
+          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <Metric icon={<Trophy className="size-4 text-accent" />} label="Best score" value={`${best.score}/${best.total_marks}`} />
+            <Metric icon={<Target className="size-4 text-accent" />} label="Best %" value={`${best.percentage}%`} />
+            <Metric icon={<CheckCircle2 className="size-4 text-primary" />} label="Best accuracy" value={`${best.accuracy}%`} />
+            <Metric icon={<Clock className="size-4" />} label="Total attempts" value={best.total_attempts} />
+          </div>
+
+          <Card className="mt-4 p-5">
+            <h2 className="font-semibold">My Attempts</h2>
+            <ul className="mt-2 divide-y divide-border">
+              {[...history].reverse().map((a) => (
+                <li key={a.id} className="py-2 flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span className="font-medium">
+                    Attempt {a.attempt_number}
+                    {a.attempt_number === best.attempt_number && <Badge className="ml-2" variant="secondary">Best</Badge>}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {a.score}/{a.total_marks} · {a.percentage}% · {a.accuracy}% acc ·{" "}
+                    {Math.floor(a.time_taken_seconds / 60)}m {a.time_taken_seconds % 60}s ·{" "}
+                    {a.submitted_at ? new Date(a.submitted_at).toLocaleString() : ""}
+                  </span>
+                  <Link
+                    to="/tests/$testId/result"
+                    params={{ testId }}
+                    search={{ attempt: a.attempt_number }}
+                    className="text-primary hover:underline"
+                  >
+                    View Result
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </>
       ) : (
         <div className="mt-4 space-y-4">
           {solutions?.map((s) => {
