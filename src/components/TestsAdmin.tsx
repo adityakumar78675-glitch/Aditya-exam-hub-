@@ -98,6 +98,9 @@ export function TestsAdmin() {
         start_at: t.start_at || null,
         end_at: t.end_at || null,
         is_published: !!t.is_published,
+        allow_reattempts: t.allow_reattempts !== false,
+        max_attempts: t.allow_reattempts === false ? 1 : t.max_attempts && t.max_attempts > 0 ? Number(t.max_attempts) : null,
+        ranking_mode: t.ranking_mode ?? "best",
       };
       if (t.id) {
         const { error } = await supabase.from("tests").update(payload).eq("id", t.id);
