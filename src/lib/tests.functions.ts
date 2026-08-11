@@ -659,7 +659,6 @@ export const getResult = createServerFn({ method: "POST" })
       solutions,
     };
   });
-  });
 
 /* ---------------- admin ---------------- */
 
