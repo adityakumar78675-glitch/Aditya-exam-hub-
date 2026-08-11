@@ -77,7 +77,7 @@ function ResultPage() {
     );
   }
 
-  const { test, attempt, rank, totalParticipants, solutions } = data;
+  const { test, attempt, rank, totalParticipants, solutions, history, best, canStartNew, attemptLimit } = data;
   const attempted = attempt.correct + attempt.incorrect;
   const accuracy = attempted ? Math.round((attempt.correct / attempted) * 100) : 0;
   const percentage = attempt.total_marks ? Math.round((attempt.score / attempt.total_marks) * 1000) / 10 : 0;
@@ -88,7 +88,8 @@ function ResultPage() {
     <div className="p-4 sm:p-8 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold">{test.title}</h1>
       <p className="text-sm text-muted-foreground mt-1">
-        {test.subject ? `${test.subject} · ` : ""}Result
+        {test.subject ? `${test.subject} · ` : ""}Result · Attempt {attempt.attempt_number}
+        {attemptLimit ? ` of ${attemptLimit}` : ""}
       </p>
 
       <Card className="mt-5 p-6">
