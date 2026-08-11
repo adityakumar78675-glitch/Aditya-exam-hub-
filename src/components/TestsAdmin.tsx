@@ -245,7 +245,53 @@ export function TestsAdmin() {
                 <Toggle label="Show solutions after submit" checked={!!editing.show_solutions} onChange={(v) => setEditing({ ...editing, show_solutions: v })} />
                 <Toggle label="Enable leaderboard / rank" checked={!!editing.leaderboard_enabled} onChange={(v) => setEditing({ ...editing, leaderboard_enabled: v })} />
                 <Toggle label="Published" checked={!!editing.is_published} onChange={(v) => setEditing({ ...editing, is_published: v })} />
+                <Toggle
+                  label="Allow reattempts"
+                  checked={editing.allow_reattempts !== false}
+                  onChange={(v) => setEditing({ ...editing, allow_reattempts: v, max_attempts: v ? editing.max_attempts ?? null : 1 })}
+                />
               </div>
+              {editing.allow_reattempts !== false && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Maximum attempts</Label>
+                    <Select
+                      value={editing.max_attempts && editing.max_attempts > 0 ? String(editing.max_attempts) : "unlimited"}
+                      onValueChange={(v) => setEditing({ ...editing, max_attempts: v === "unlimited" ? null : Number(v) })}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unlimited">Unlimited</SelectItem>
+                        {[1, 2, 3, 5].map((n) => (
+                          <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="number"
+                      min={1}
+                      className="mt-2"
+                      placeholder="Custom limit (blank = unlimited)"
+                      value={editing.max_attempts ?? ""}
+                      onChange={(e) => setEditing({ ...editing, max_attempts: e.target.value ? Number(e.target.value) : null })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Ranking uses</Label>
+                    <Select
+                      value={editing.ranking_mode ?? "best"}
+                      onValueChange={(v) => setEditing({ ...editing, ranking_mode: v as TestRow["ranking_mode"] })}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="best">Best attempt</SelectItem>
+                        <SelectItem value="latest">Latest attempt</SelectItem>
+                        <SelectItem value="average">Average of attempts</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>
