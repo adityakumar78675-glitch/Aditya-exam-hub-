@@ -93,8 +93,9 @@ export const listTests = createServerFn({ method: "GET" })
 
     const { data: attempts } = await supabase
       .from("test_attempts")
-      .select("test_id, submitted_at, score, total_marks")
-      .eq("student_id", userId);
+      .select("test_id, attempt_number, submitted_at, score, total_marks")
+      .eq("student_id", userId)
+      .order("attempt_number", { ascending: true });
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const ids = (tests ?? []).map((t) => t.id);
@@ -105,14 +106,103 @@ export const listTests = createServerFn({ method: "GET" })
     }
 
     return (tests ?? []).map((t) => {
-      const a = (attempts ?? []).find((x) => x.test_id === t.id) ?? null;
+      const mine = (attempts ?? []).filter((x) => x.test_id === t.id);
+      const submitted = mine.filter((x) => x.submitted_at);
+      const active = mine.find((x) => !x.submitted_at) ?? null;
+      const best = submitted.length
+        ? submitted.reduce((b, a) => (Number(a.score ?? 0) > Number(b.score ?? 0) ? a : b))
+        : null;
       return {
         ...t,
         question_count: counts[t.id] ?? 0,
-        attempt: a ? { submitted: !!a.submitted_at, score: a.score, total_marks: a.total_marks } : null,
+        attempt_count: submitted.length,
+        attempt: best
+          ? { submitted: true, score: best.score, total_marks: best.total_marks }
+          : active
+            ? { submitted: false, score: null, total_marks: null }
+            : null,
       };
     });
   });
+
+/* ---------------- attempt helpers ---------------- */
+
+type AttemptRow = {
+  id: string;
+  attempt_number: number;
+  score: number | null;
+  total_marks: number | null;
+  correct_count: number | null;
+  incorrect_count: number | null;
+  unattempted_count: number | null;
+  time_taken_seconds: number | null;
+  started_at: string;
+  submitted_at: string | null;
+};
+
+export type AttemptSummary = {
+  id: string;
+  attempt_number: number;
+  score: number;
+  total_marks: number;
+  percentage: number;
+  accuracy: number;
+  correct: number;
+  incorrect: number;
+  unattempted: number;
+  time_taken_seconds: number;
+  started_at: string;
+  submitted_at: string;
+};
+
+function summarize(a: AttemptRow): AttemptSummary {
+  const score = Number(a.score ?? 0);
+  const total = Number(a.total_marks ?? 0);
+  const correct = a.correct_count ?? 0;
+  const incorrect = a.incorrect_count ?? 0;
+  const attempted = correct + incorrect;
+  return {
+    id: a.id,
+    attempt_number: a.attempt_number,
+    score,
+    total_marks: total,
+    percentage: total ? Math.round((score / total) * 1000) / 10 : 0,
+    accuracy: attempted ? Math.round((correct / attempted) * 100) : 0,
+    correct,
+    incorrect,
+    unattempted: a.unattempted_count ?? 0,
+    time_taken_seconds: a.time_taken_seconds ?? 0,
+    started_at: a.started_at,
+    submitted_at: a.submitted_at ?? "",
+  };
+}
+
+const ATTEMPT_COLS =
+  "id, attempt_number, score, total_marks, correct_count, incorrect_count, unattempted_count, time_taken_seconds, started_at, submitted_at";
+
+/** All attempts for a student on a test, oldest first. */
+async function loadAttempts(
+  admin: { from: (t: string) => any },
+  testId: string,
+  userId: string,
+): Promise<AttemptRow[]> {
+  const { data } = await admin
+    .from("test_attempts")
+    .select(ATTEMPT_COLS)
+    .eq("test_id", testId)
+    .eq("student_id", userId)
+    .order("attempt_number", { ascending: true });
+  return (data ?? []) as AttemptRow[];
+}
+
+function attemptsLeft(
+  test: { allow_reattempts: boolean | null; max_attempts: number | null },
+  submittedCount: number,
+): { canStartNew: boolean; limit: number | null } {
+  const limit = test.allow_reattempts === false ? 1 : test.max_attempts && test.max_attempts > 0 ? test.max_attempts : null;
+  if (limit === null) return { canStartNew: true, limit: null };
+  return { canStartNew: submittedCount < limit, limit };
+}
 
 /* ---------------- test meta (instructions screen) ---------------- */
 
@@ -124,27 +214,37 @@ export const getTestMeta = createServerFn({ method: "POST" })
     const { data: test, error } = await supabase
       .from("tests")
       .select(
-        "id, title, subject, instructions, batch_id, duration_minutes, positive_marks, negative_marks, languages, start_at, end_at, show_solutions, leaderboard_enabled",
+        "id, title, subject, instructions, batch_id, duration_minutes, positive_marks, negative_marks, languages, start_at, end_at, show_solutions, leaderboard_enabled, allow_reattempts, max_attempts",
       )
       .eq("id", data.testId)
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!test) throw new Error("Test not found or not available");
 
-    const { data: attempt } = await supabase
-      .from("test_attempts")
-      .select("id, started_at, expires_at, submitted_at")
-      .eq("test_id", data.testId)
-      .eq("student_id", userId)
-      .maybeSingle();
-
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const all = await loadAttempts(supabaseAdmin as never, data.testId, userId);
+    const active = all.find((a) => !a.submitted_at) ?? null;
+    const submitted = all.filter((a) => a.submitted_at);
+    const { canStartNew, limit } = attemptsLeft(test, submitted.length);
+
     const { count } = await supabaseAdmin
       .from("test_questions")
       .select("id", { count: "exact", head: true })
       .eq("test_id", data.testId);
 
-    return { test, attempt: attempt ?? null, question_count: count ?? 0 };
+    return {
+      test,
+      attempt: active
+        ? { id: active.id, started_at: active.started_at, submitted_at: null }
+        : submitted.length
+          ? { id: submitted[submitted.length - 1]!.id, started_at: submitted[submitted.length - 1]!.started_at, submitted_at: submitted[submitted.length - 1]!.submitted_at }
+          : null,
+      hasActive: !!active,
+      attempts: submitted.map(summarize),
+      attemptLimit: limit,
+      canStartNew,
+      question_count: count ?? 0,
+    };
   });
 
 /* ---------------- start / resume attempt ---------------- */
@@ -157,7 +257,7 @@ export const startAttempt = createServerFn({ method: "POST" })
     // RLS-checked visibility of the test
     const { data: test } = await supabase
       .from("tests")
-      .select("id, duration_minutes, randomize_questions, start_at, end_at")
+      .select("id, duration_minutes, randomize_questions, start_at, end_at, allow_reattempts, max_attempts")
       .eq("id", data.testId)
       .maybeSingle();
     if (!test) throw new Error("Test not available");
@@ -166,16 +266,21 @@ export const startAttempt = createServerFn({ method: "POST" })
     if (test.end_at && now > new Date(test.end_at).getTime()) throw new Error("Test window has closed");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: existing } = await supabaseAdmin
-      .from("test_attempts")
-      .select("id, submitted_at")
-      .eq("test_id", data.testId)
-      .eq("student_id", userId)
-      .maybeSingle();
-    if (existing) {
-      if (existing.submitted_at) throw new Error("You have already submitted this test");
-      return { attemptId: existing.id };
+    const all = await loadAttempts(supabaseAdmin as never, data.testId, userId);
+    const active = all.find((a) => !a.submitted_at);
+    if (active) return { attemptId: active.id, attemptNumber: active.attempt_number, resumed: true };
+
+    const submittedCount = all.filter((a) => a.submitted_at).length;
+    const { canStartNew, limit } = attemptsLeft(test, submittedCount);
+    if (!canStartNew) {
+      throw new Error(
+        limit === 1
+          ? "You have already submitted this test"
+          : "You have reached the maximum number of attempts.",
+      );
     }
+
+    const attemptNumber = (all[all.length - 1]?.attempt_number ?? 0) + 1;
 
     const { data: qs } = await supabaseAdmin
       .from("test_questions")
@@ -184,7 +289,9 @@ export const startAttempt = createServerFn({ method: "POST" })
       .order("order_index", { ascending: true });
     let order = (qs ?? []).map((q) => q.id);
     if (!order.length) throw new Error("This test has no questions yet");
-    if (test.randomize_questions) order = seededShuffle(order, `${data.testId}:${userId}`);
+    // Fresh randomization for every attempt so previous order can't be memorised.
+    if (test.randomize_questions)
+      order = seededShuffle(order, `${data.testId}:${userId}:${attemptNumber}:${now}`);
 
     const expires = new Date(now + test.duration_minutes * 60_000).toISOString();
     const { data: created, error } = await supabaseAdmin
@@ -192,14 +299,16 @@ export const startAttempt = createServerFn({ method: "POST" })
       .insert({
         test_id: data.testId,
         student_id: userId,
+        attempt_number: attemptNumber,
         question_order: order,
         expires_at: expires,
       })
       .select("id")
       .single();
     if (error) throw new Error(error.message);
-    return { attemptId: created.id };
+    return { attemptId: created.id, attemptNumber, resumed: false };
   });
+
 
 /* ---------------- attempt state (questions, no answers) ---------------- */
 
@@ -218,9 +327,12 @@ export const getAttemptState = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: attempt } = await supabaseAdmin
       .from("test_attempts")
-      .select("id, question_order, answers, marked, started_at, expires_at, submitted_at")
+      .select("id, attempt_number, question_order, answers, marked, started_at, expires_at, submitted_at")
       .eq("test_id", data.testId)
       .eq("student_id", userId)
+      .is("submitted_at", null)
+      .order("attempt_number", { ascending: false })
+      .limit(1)
       .maybeSingle();
     if (!attempt) return { status: "not_started" as const, test };
     if (attempt.submitted_at) return { status: "submitted" as const, test };
@@ -263,6 +375,7 @@ export const getAttemptState = createServerFn({ method: "POST" })
       status: "active" as const,
       test,
       attemptId: attempt.id,
+      attemptNumber: attempt.attempt_number,
       answers: (attempt.answers ?? {}) as Record<string, AnswerValue>,
       marked: (attempt.marked ?? {}) as Record<string, boolean>,
       startedAt: attempt.started_at,
@@ -285,6 +398,9 @@ export const saveAnswers = createServerFn({ method: "POST" })
       .select("id, answers, marked, submitted_at, expires_at")
       .eq("test_id", data.testId)
       .eq("student_id", userId)
+      .is("submitted_at", null)
+      .order("attempt_number", { ascending: false })
+      .limit(1)
       .maybeSingle();
     if (!attempt) throw new Error("No active attempt");
     if (attempt.submitted_at) return { ok: false, submitted: true };
@@ -342,6 +458,9 @@ export const submitTest = createServerFn({ method: "POST" })
       .select("id, question_order, answers, started_at, submitted_at")
       .eq("test_id", data.testId)
       .eq("student_id", userId)
+      .is("submitted_at", null)
+      .order("attempt_number", { ascending: false })
+      .limit(1)
       .maybeSingle();
     if (!attempt) throw new Error("No active attempt");
     if (attempt.submitted_at) return { ok: true, alreadySubmitted: true };
@@ -408,37 +527,77 @@ export const submitTest = createServerFn({ method: "POST" })
 
 export const getResult = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { testId: string }) => d)
+  .inputValidator((d: { testId: string; attemptNumber?: number }) => d)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: test } = await supabase
       .from("tests")
-      .select("id, title, subject, show_solutions, leaderboard_enabled, randomize_options, positive_marks, negative_marks")
+      .select(
+        "id, title, subject, show_solutions, leaderboard_enabled, randomize_options, positive_marks, negative_marks, allow_reattempts, max_attempts, ranking_mode",
+      )
       .eq("id", data.testId)
       .maybeSingle();
     if (!test) throw new Error("Test not available");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: attempt } = await supabaseAdmin
+    const { data: mine } = await supabaseAdmin
       .from("test_attempts")
       .select("*")
       .eq("test_id", data.testId)
       .eq("student_id", userId)
-      .maybeSingle();
-    if (!attempt || !attempt.submitted_at) throw new Error("Test not submitted yet");
+      .not("submitted_at", "is", null)
+      .order("attempt_number", { ascending: true });
+    const submittedAttempts = (mine ?? []) as (AttemptRow & {
+      question_order: string[];
+      answers: Record<string, AnswerValue> | null;
+    })[];
+    if (!submittedAttempts.length) throw new Error("Test not submitted yet");
+
+    const attempt =
+      (data.attemptNumber
+        ? submittedAttempts.find((a) => a.attempt_number === data.attemptNumber)
+        : submittedAttempts[submittedAttempts.length - 1]) ?? null;
+    if (!attempt) throw new Error("Attempt not found");
+
+    const history = submittedAttempts.map(summarize);
+    const best = history.reduce((b, a) => (a.score > b.score ? a : b), history[0]!);
+    const bestStats = {
+      score: best.score,
+      total_marks: best.total_marks,
+      percentage: Math.max(...history.map((h) => h.percentage)),
+      accuracy: Math.max(...history.map((h) => h.accuracy)),
+      attempt_number: best.attempt_number,
+      total_attempts: history.length,
+    };
+    const { canStartNew, limit } = attemptsLeft(test, history.length);
 
     let rank: number | null = null;
     let totalParticipants: number | null = null;
     if (test.leaderboard_enabled) {
       const { data: all } = await supabaseAdmin
         .from("test_attempts")
-        .select("score")
+        .select("student_id, score")
         .eq("test_id", data.testId)
         .not("submitted_at", "is", null);
-      const scores = (all ?? []).map((a) => Number(a.score ?? 0)).sort((a, b) => b - a);
+      const mode = (test.ranking_mode ?? "best") as "best" | "latest" | "average";
+      const perStudent = new Map<string, number[]>();
+      for (const a of all ?? []) {
+        const arr = perStudent.get(a.student_id) ?? [];
+        arr.push(Number(a.score ?? 0));
+        perStudent.set(a.student_id, arr);
+      }
+      const reduce = (arr: number[]) =>
+        mode === "latest"
+          ? arr[arr.length - 1]!
+          : mode === "average"
+            ? arr.reduce((s, v) => s + v, 0) / arr.length
+            : Math.max(...arr);
+      const scores = [...perStudent.values()].map(reduce).sort((a, b) => b - a);
+      const myScore = reduce(perStudent.get(userId) ?? [Number(attempt.score ?? 0)]);
       totalParticipants = scores.length;
-      rank = scores.findIndex((s) => s <= Number(attempt.score ?? 0)) + 1 || null;
+      rank = scores.findIndex((s) => s <= myScore) + 1 || null;
     }
+
 
     let solutions: SolutionItem[] | null = null;
     if (test.show_solutions) {
@@ -493,6 +652,7 @@ export const getResult = createServerFn({ method: "POST" })
     return {
       test,
       attempt: {
+        attempt_number: attempt.attempt_number,
         score: Number(attempt.score ?? 0),
         total_marks: Number(attempt.total_marks ?? 0),
         correct: attempt.correct_count ?? 0,
@@ -501,6 +661,10 @@ export const getResult = createServerFn({ method: "POST" })
         time_taken_seconds: attempt.time_taken_seconds ?? 0,
         submitted_at: attempt.submitted_at,
       },
+      history,
+      best: bestStats,
+      canStartNew,
+      attemptLimit: limit,
       rank,
       totalParticipants,
       solutions,

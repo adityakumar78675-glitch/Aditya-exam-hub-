@@ -843,6 +843,7 @@ export type Database = {
       test_attempts: {
         Row: {
           answers: Json
+          attempt_number: number
           correct_count: number | null
           created_at: string
           expires_at: string
@@ -862,6 +863,7 @@ export type Database = {
         }
         Insert: {
           answers?: Json
+          attempt_number?: number
           correct_count?: number | null
           created_at?: string
           expires_at: string
@@ -881,6 +883,7 @@ export type Database = {
         }
         Update: {
           answers?: Json
+          attempt_number?: number
           correct_count?: number | null
           created_at?: string
           expires_at?: string
@@ -981,6 +984,7 @@ export type Database = {
       }
       tests: {
         Row: {
+          allow_reattempts: boolean
           batch_id: string | null
           created_at: string
           duration_minutes: number
@@ -990,10 +994,12 @@ export type Database = {
           is_published: boolean
           languages: string[]
           leaderboard_enabled: boolean
+          max_attempts: number | null
           negative_marks: number
           positive_marks: number
           randomize_options: boolean
           randomize_questions: boolean
+          ranking_mode: string
           show_solutions: boolean
           start_at: string | null
           subject: string | null
@@ -1001,6 +1007,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          allow_reattempts?: boolean
           batch_id?: string | null
           created_at?: string
           duration_minutes?: number
@@ -1010,10 +1017,12 @@ export type Database = {
           is_published?: boolean
           languages?: string[]
           leaderboard_enabled?: boolean
+          max_attempts?: number | null
           negative_marks?: number
           positive_marks?: number
           randomize_options?: boolean
           randomize_questions?: boolean
+          ranking_mode?: string
           show_solutions?: boolean
           start_at?: string | null
           subject?: string | null
@@ -1021,6 +1030,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          allow_reattempts?: boolean
           batch_id?: string | null
           created_at?: string
           duration_minutes?: number
@@ -1030,10 +1040,12 @@ export type Database = {
           is_published?: boolean
           languages?: string[]
           leaderboard_enabled?: boolean
+          max_attempts?: number | null
           negative_marks?: number
           positive_marks?: number
           randomize_options?: boolean
           randomize_questions?: boolean
+          ranking_mode?: string
           show_solutions?: boolean
           start_at?: string | null
           subject?: string | null

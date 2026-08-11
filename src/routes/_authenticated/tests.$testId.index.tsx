@@ -59,7 +59,12 @@ function TestInstructions() {
   }
 
   const { test, attempt, question_count } = data;
-  const submitted = !!attempt?.submitted_at;
+  const history = data.attempts ?? [];
+  const hasActive = data.hasActive ?? (!!attempt && !attempt.submitted_at);
+  const canStartNew = data.canStartNew ?? true;
+  const attemptLimit = data.attemptLimit ?? null;
+  const submitted = history.length > 0;
+  const best = history.length ? history.reduce((b, a) => (a.score > b.score ? a : b)) : null;
 
   const onStart = async () => {
     setBusy(true);
@@ -111,20 +116,69 @@ function TestInstructions() {
         )}
       </Card>
 
+      {submitted && best && (
+        <Card className="mt-6 p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-semibold">My Attempts</h2>
+            <Badge variant="secondary">
+              Best {best.score}/{best.total_marks} · {history.length} attempt{history.length > 1 ? "s" : ""}
+              {attemptLimit ? ` of ${attemptLimit}` : ""}
+            </Badge>
+          </div>
+          <ul className="mt-3 divide-y divide-border">
+            {[...history].reverse().map((a) => (
+              <li key={a.id} className="py-2 flex flex-wrap items-center justify-between gap-2 text-sm">
+                <span className="font-medium">Attempt {a.attempt_number}</span>
+                <span className="text-muted-foreground">
+                  {a.score}/{a.total_marks} · {a.percentage}% · {a.accuracy}% acc ·{" "}
+                  {Math.floor(a.time_taken_seconds / 60)}m {a.time_taken_seconds % 60}s ·{" "}
+                  {a.submitted_at ? new Date(a.submitted_at).toLocaleDateString() : ""}
+                </span>
+                <Link
+                  to="/tests/$testId/result"
+                  params={{ testId }}
+                  search={{ attempt: a.attempt_number }}
+                  className="text-primary hover:underline"
+                >
+                  View Result
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
       <div className="mt-6 flex flex-wrap gap-3">
-        {submitted ? (
-          <Button asChild>
-            <Link to="/tests/$testId/result" params={{ testId }}>View Result</Link>
+        {hasActive ? (
+          <Button onClick={onStart} disabled={busy || question_count === 0} size="lg">
+            {busy ? "Starting..." : "Resume Test"}
           </Button>
+        ) : submitted ? (
+          <>
+            <Button asChild>
+              <Link to="/tests/$testId/result" params={{ testId }}>View Result</Link>
+            </Button>
+            <Button asChild variant="secondary">
+              <Link to="/tests/$testId/result" params={{ testId }} search={{ solutions: true }}>View Solutions</Link>
+            </Button>
+            {canStartNew && (
+              <Button onClick={onStart} disabled={busy || question_count === 0}>
+                {busy ? "Starting..." : "Attempt Again"}
+              </Button>
+            )}
+          </>
         ) : (
           <Button onClick={onStart} disabled={busy || question_count === 0} size="lg">
-            {busy ? "Starting..." : attempt ? "Resume Test" : "Start Test"}
+            {busy ? "Starting..." : "Start Test"}
           </Button>
         )}
         <Button asChild variant="outline">
           <Link to="/tests">Back to Test Series</Link>
         </Button>
       </div>
+      {submitted && !canStartNew && (
+        <p className="text-sm text-muted-foreground mt-3">You have used all available attempts for this test.</p>
+      )}
       {question_count === 0 && (
         <p className="text-sm text-muted-foreground mt-3">This test has no questions yet.</p>
       )}
