@@ -59,7 +59,12 @@ function TestInstructions() {
   }
 
   const { test, attempt, question_count } = data;
-  const submitted = !!attempt?.submitted_at;
+  const history = data.attempts ?? [];
+  const hasActive = data.hasActive ?? (!!attempt && !attempt.submitted_at);
+  const canStartNew = data.canStartNew ?? true;
+  const attemptLimit = data.attemptLimit ?? null;
+  const submitted = history.length > 0;
+  const best = history.length ? history.reduce((b, a) => (a.score > b.score ? a : b)) : null;
 
   const onStart = async () => {
     setBusy(true);
