@@ -516,37 +516,77 @@ export const submitTest = createServerFn({ method: "POST" })
 
 export const getResult = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { testId: string }) => d)
+  .inputValidator((d: { testId: string; attemptNumber?: number }) => d)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: test } = await supabase
       .from("tests")
-      .select("id, title, subject, show_solutions, leaderboard_enabled, randomize_options, positive_marks, negative_marks")
+      .select(
+        "id, title, subject, show_solutions, leaderboard_enabled, randomize_options, positive_marks, negative_marks, allow_reattempts, max_attempts, ranking_mode",
+      )
       .eq("id", data.testId)
       .maybeSingle();
     if (!test) throw new Error("Test not available");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: attempt } = await supabaseAdmin
+    const { data: mine } = await supabaseAdmin
       .from("test_attempts")
       .select("*")
       .eq("test_id", data.testId)
       .eq("student_id", userId)
-      .maybeSingle();
-    if (!attempt || !attempt.submitted_at) throw new Error("Test not submitted yet");
+      .not("submitted_at", "is", null)
+      .order("attempt_number", { ascending: true });
+    const submittedAttempts = (mine ?? []) as (AttemptRow & {
+      question_order: string[];
+      answers: Record<string, AnswerValue> | null;
+    })[];
+    if (!submittedAttempts.length) throw new Error("Test not submitted yet");
+
+    const attempt =
+      (data.attemptNumber
+        ? submittedAttempts.find((a) => a.attempt_number === data.attemptNumber)
+        : submittedAttempts[submittedAttempts.length - 1]) ?? null;
+    if (!attempt) throw new Error("Attempt not found");
+
+    const history = submittedAttempts.map(summarize);
+    const best = history.reduce((b, a) => (a.score > b.score ? a : b), history[0]!);
+    const bestStats = {
+      score: best.score,
+      total_marks: best.total_marks,
+      percentage: Math.max(...history.map((h) => h.percentage)),
+      accuracy: Math.max(...history.map((h) => h.accuracy)),
+      attempt_number: best.attempt_number,
+      total_attempts: history.length,
+    };
+    const { canStartNew, limit } = attemptsLeft(test, history.length);
 
     let rank: number | null = null;
     let totalParticipants: number | null = null;
     if (test.leaderboard_enabled) {
       const { data: all } = await supabaseAdmin
         .from("test_attempts")
-        .select("score")
+        .select("student_id, score")
         .eq("test_id", data.testId)
         .not("submitted_at", "is", null);
-      const scores = (all ?? []).map((a) => Number(a.score ?? 0)).sort((a, b) => b - a);
+      const mode = (test.ranking_mode ?? "best") as "best" | "latest" | "average";
+      const perStudent = new Map<string, number[]>();
+      for (const a of all ?? []) {
+        const arr = perStudent.get(a.student_id) ?? [];
+        arr.push(Number(a.score ?? 0));
+        perStudent.set(a.student_id, arr);
+      }
+      const reduce = (arr: number[]) =>
+        mode === "latest"
+          ? arr[arr.length - 1]!
+          : mode === "average"
+            ? arr.reduce((s, v) => s + v, 0) / arr.length
+            : Math.max(...arr);
+      const scores = [...perStudent.values()].map(reduce).sort((a, b) => b - a);
+      const myScore = reduce(perStudent.get(userId) ?? [Number(attempt.score ?? 0)]);
       totalParticipants = scores.length;
-      rank = scores.findIndex((s) => s <= Number(attempt.score ?? 0)) + 1 || null;
+      rank = scores.findIndex((s) => s <= myScore) + 1 || null;
     }
+
 
     let solutions: SolutionItem[] | null = null;
     if (test.show_solutions) {
