@@ -130,6 +130,11 @@ function ResultPage() {
             View Solutions
           </Button>
         )}
+        {canStartNew && (
+          <Button variant="secondary" onClick={onRetake} disabled={busy}>
+            {busy ? "Starting..." : "Attempt Again"}
+          </Button>
+        )}
         <Button asChild variant="outline">
           <Link to="/tests">Back to Test Series</Link>
         </Button>
