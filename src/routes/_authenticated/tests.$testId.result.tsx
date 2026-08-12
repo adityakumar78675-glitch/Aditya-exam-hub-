@@ -15,9 +15,9 @@ import { CheckCircle2, XCircle, MinusCircle, Clock, Trophy, Target } from "lucid
 
 export const Route = createFileRoute("/_authenticated/tests/$testId/result")({
   component: ResultPage,
-  validateSearch: (s: Record<string, unknown>) => ({
-    attempt: s['attempt'] ? Number(s['attempt']) : undefined,
-    solutions: s['solutions'] ? true : undefined,
+  validateSearch: (s: Record<string, unknown>): { attempt?: number; solutions?: boolean } => ({
+    ...(s['attempt'] ? { attempt: Number(s['attempt']) } : {}),
+    ...(s['solutions'] ? { solutions: true } : {}),
   }),
   head: () => ({
     meta: [
