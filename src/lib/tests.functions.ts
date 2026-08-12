@@ -610,6 +610,7 @@ export const getResult = createServerFn({ method: "POST" })
         .eq("test_id", data.testId);
       const byId = new Map((rows ?? []).map((r) => [r.id, r]));
       const answers = (attempt.answers ?? {}) as Record<string, AnswerValue>;
+      const markedMap = ((attempt as unknown as { marked: Record<string, boolean> | null }).marked ?? {}) as Record<string, boolean>;
       solutions = (attempt.question_order as string[])
         .map((qid, i) => {
           const q = byId.get(qid);
