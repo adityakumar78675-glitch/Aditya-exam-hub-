@@ -648,6 +648,9 @@ export const getResult = createServerFn({ method: "POST" })
             solution_hi: q.solution_hi,
             your_answer: answers[qid] ?? null,
             verdict: isCorrect(q, answers[qid] ?? null, perm),
+            marked: !!markedMap[qid],
+            positive_marks: Number(q.positive_marks ?? test.positive_marks ?? 0),
+            negative_marks: Number(q.negative_marks ?? test.negative_marks ?? 0),
           };
         })
         .filter((s): s is SolutionItem => s !== null);
