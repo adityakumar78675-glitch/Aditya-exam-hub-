@@ -74,6 +74,9 @@ export type SolutionItem = {
   solution_hi: string | null;
   your_answer: AnswerValue;
   verdict: boolean | null;
+  marked: boolean;
+  positive_marks: number;
+  negative_marks: number;
 };
 
 /* ---------------- list tests ---------------- */
