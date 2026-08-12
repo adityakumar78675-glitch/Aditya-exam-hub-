@@ -14,7 +14,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   CheckCircle2,
   XCircle,
-  MinusCircle,
   Clock,
   Trophy,
   Target,
@@ -542,8 +541,4 @@ function Bar({ label, value, total, className }: { label: string; value: number;
       </div>
     </div>
   );
-}
-
-function _unusedIcons() {
-  return <MinusCircle />;
 }
