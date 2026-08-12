@@ -661,6 +661,7 @@ export const getResult = createServerFn({ method: "POST" })
       attempt: {
         attempt_number: attempt.attempt_number,
         total_questions: ((attempt.question_order as string[]) ?? []).length,
+        score: Number(attempt.score ?? 0),
         total_marks: Number(attempt.total_marks ?? 0),
         correct: attempt.correct_count ?? 0,
         incorrect: attempt.incorrect_count ?? 0,
