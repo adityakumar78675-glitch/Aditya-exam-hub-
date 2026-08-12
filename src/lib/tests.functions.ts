@@ -74,6 +74,9 @@ export type SolutionItem = {
   solution_hi: string | null;
   your_answer: AnswerValue;
   verdict: boolean | null;
+  marked: boolean;
+  positive_marks: number;
+  negative_marks: number;
 };
 
 /* ---------------- list tests ---------------- */
@@ -607,6 +610,7 @@ export const getResult = createServerFn({ method: "POST" })
         .eq("test_id", data.testId);
       const byId = new Map((rows ?? []).map((r) => [r.id, r]));
       const answers = (attempt.answers ?? {}) as Record<string, AnswerValue>;
+      const markedMap = ((attempt as unknown as { marked: Record<string, boolean> | null }).marked ?? {}) as Record<string, boolean>;
       solutions = (attempt.question_order as string[])
         .map((qid, i) => {
           const q = byId.get(qid);
@@ -644,6 +648,9 @@ export const getResult = createServerFn({ method: "POST" })
             solution_hi: q.solution_hi,
             your_answer: answers[qid] ?? null,
             verdict: isCorrect(q, answers[qid] ?? null, perm),
+            marked: !!markedMap[qid],
+            positive_marks: Number(q.positive_marks ?? test.positive_marks ?? 0),
+            negative_marks: Number(q.negative_marks ?? test.negative_marks ?? 0),
           };
         })
         .filter((s): s is SolutionItem => s !== null);
@@ -653,6 +660,7 @@ export const getResult = createServerFn({ method: "POST" })
       test,
       attempt: {
         attempt_number: attempt.attempt_number,
+        total_questions: ((attempt.question_order as string[]) ?? []).length,
         score: Number(attempt.score ?? 0),
         total_marks: Number(attempt.total_marks ?? 0),
         correct: attempt.correct_count ?? 0,
