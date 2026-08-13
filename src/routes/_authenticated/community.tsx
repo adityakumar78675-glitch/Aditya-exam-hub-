@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/_authenticated/community")({ component: CommunityPage });
+export const Route = createFileRoute("/_authenticated/community")({ component: CommunityPageGate });
 
 const BUCKET = "community-attachments";
 const MAX_SIZE = 50 * 1024 * 1024;
@@ -30,10 +30,14 @@ type Message = {
 };
 type Member = { id: string; community_id: string; student_id: string; role: string; status: string };
 
+function CommunityPageGate() {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="p-8 text-muted-foreground">Loading...</div>;
+  if (!user) return <AuthWall description="Join the community to chat with students and mentors. Create a free account to continue." />;
+  return <CommunityPage />;
+}
+
 function CommunityPage() {
-  const { user: __u, loading: __l } = useAuth();
-  if (__l) return <div className="p-8 text-muted-foreground">Loading...</div>;
-  if (!__u) return <AuthWall title="Login required" description="Join the community to chat with students and mentors. Create a free account to continue." />;
   const { user, role } = useAuth();
   const [selected, setSelected] = useState<string | null>(null);
   const [showSidebar, setShowSidebar] = useState(true);

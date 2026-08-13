@@ -9,12 +9,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/profile")({ component: ProfilePage });
+export const Route = createFileRoute("/_authenticated/profile")({ component: ProfilePageGate });
+
+function ProfilePageGate() {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="p-8 text-muted-foreground">Loading...</div>;
+  if (!user) return <AuthWall description="Sign in to view and edit your profile." />;
+  return <ProfilePage />;
+}
 
 function ProfilePage() {
-  const { user: __u, loading: __l } = useAuth();
-  if (__l) return <div className="p-8 text-muted-foreground">Loading...</div>;
-  if (!__u) return <AuthWall title="Login required" description="Sign in to view and edit your profile." />;
   const { user } = useAuth();
   const [form, setForm] = useState({ full_name: "", phone: "", class_level: "" });
   const [newPw, setNewPw] = useState("");

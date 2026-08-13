@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FileText, Search, Download, ExternalLink, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/notes")({ component: NotesPage });
+export const Route = createFileRoute("/_authenticated/notes")({ component: NotesPageGate });
 
 function formatBytes(n?: number | null) {
   if (!n) return "";
@@ -20,10 +20,14 @@ function formatBytes(n?: number | null) {
   return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
 
+function NotesPageGate() {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="p-8 text-muted-foreground">Loading...</div>;
+  if (!user) return <AuthWall description="Sign in to access study notes and private downloads." />;
+  return <NotesPage />;
+}
+
 function NotesPage() {
-  const { user: __u, loading: __l } = useAuth();
-  if (__l) return <div className="p-8 text-muted-foreground">Loading...</div>;
-  if (!__u) return <AuthWall title="Login required" description="Sign in to access study notes and private downloads." />;
   const [batchId, setBatchId] = useState<string>("all");
   const [subjectId, setSubjectId] = useState<string>("all");
   const [chapterId, setChapterId] = useState<string>("all");
