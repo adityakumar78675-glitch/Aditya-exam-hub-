@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { listTests } from "@/lib/tests.functions";
+import { listTests, listPublicTests } from "@/lib/tests.functions";
+import { useAuth } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,10 +23,13 @@ export const Route = createFileRoute("/_authenticated/tests/")({
 });
 
 function TestList() {
+  const { user, loading } = useAuth();
   const fetchTests = useServerFn(listTests);
+  const fetchPublicTests = useServerFn(listPublicTests);
   const { data, isLoading } = useQuery({
-    queryKey: ["tests"],
-    queryFn: () => fetchTests(),
+    queryKey: ["tests", user ? "auth" : "guest"],
+    enabled: !loading,
+    queryFn: () => (user ? fetchTests() : fetchPublicTests()),
   });
 
   return (
