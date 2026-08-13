@@ -79,18 +79,32 @@ function AuthLayout() {
         )}
       </nav>
       <div className="p-3 border-t border-border">
-        <div className="flex items-center gap-3 p-2">
-          <div className="size-9 rounded-full bg-primary/10 text-primary grid place-items-center font-bold">
-            {(user.email?.[0] ?? "U").toUpperCase()}
+        {user ? (
+          <>
+            <div className="flex items-center gap-3 p-2">
+              <div className="size-9 rounded-full bg-primary/10 text-primary grid place-items-center font-bold">
+                {(user.email?.[0] ?? "U").toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold truncate">{user.email}</p>
+                <p className="text-[10px] uppercase text-muted-foreground">{role ?? "student"}</p>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" className="w-full justify-start mt-2" onClick={async () => { await signOut(); navigate({ to: "/login" }); }}>
+              <LogOut className="size-4 mr-2" /> Sign out
+            </Button>
+          </>
+        ) : (
+          <div className="space-y-2 p-1">
+            <p className="text-xs text-muted-foreground px-1">You are browsing as a guest.</p>
+            <Button size="sm" className="w-full" onClick={() => navigate({ to: "/login", search: { redirect: href } })}>
+              Login
+            </Button>
+            <Button size="sm" variant="secondary" className="w-full" onClick={() => navigate({ to: "/signup", search: { redirect: href } })}>
+              Create Account
+            </Button>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold truncate">{user.email}</p>
-            <p className="text-[10px] uppercase text-muted-foreground">{role ?? "student"}</p>
-          </div>
-        </div>
-        <Button variant="ghost" size="sm" className="w-full justify-start mt-2" onClick={async () => { await signOut(); navigate({ to: "/login" }); }}>
-          <LogOut className="size-4 mr-2" /> Sign out
-        </Button>
+        )}
       </div>
     </>
   );
