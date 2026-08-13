@@ -79,6 +79,42 @@ export type SolutionItem = {
   negative_marks: number;
 };
 
+/* ---------------- public (guest) test list ---------------- */
+
+export const listPublicTests = createServerFn({ method: "GET" }).handler(async () => {
+  const { createClient } = await import("@supabase/supabase-js");
+  const client = createClient(
+    process.env["SUPABASE_URL"]!,
+    process.env["SUPABASE_PUBLISHABLE_KEY"]!,
+    { auth: { storage: undefined, persistSession: false, autoRefreshToken: false } },
+  );
+  const { data: tests, error } = await client
+    .from("tests")
+    .select(
+      "id, title, subject, batch_id, duration_minutes, positive_marks, negative_marks, languages, start_at, end_at, is_published, leaderboard_enabled",
+    )
+    .eq("is_published", true)
+    .is("batch_id", null)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const ids = (tests ?? []).map((t: { id: string }) => t.id);
+  const counts: Record<string, number> = {};
+  if (ids.length) {
+    const { data: qs } = await supabaseAdmin.from("test_questions").select("test_id").in("test_id", ids);
+    for (const q of qs ?? []) counts[q.test_id] = (counts[q.test_id] ?? 0) + 1;
+  }
+
+  type PublicTest = NonNullable<typeof tests>[number];
+  return (tests ?? []).map((t: PublicTest) => ({
+    ...(t as PublicTest),
+    question_count: counts[t.id] ?? 0,
+    attempt_count: 0,
+    attempt: null as null | { submitted: boolean; score: number | null; total_marks: number | null },
+  }));
+});
+
 /* ---------------- list tests ---------------- */
 
 export const listTests = createServerFn({ method: "GET" })

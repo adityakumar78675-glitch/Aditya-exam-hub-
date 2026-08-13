@@ -3,13 +3,18 @@ import { useEffect, useState } from "react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { safeRedirect } from "@/lib/guest";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/signup")({ component: SignupPage });
+export const Route = createFileRoute("/signup")({
+  component: SignupPage,
+  validateSearch: (search: Record<string, unknown>): { redirect?: string } =>
+    typeof search.redirect === "string" ? { redirect: search.redirect } : {},
+});
 
 const schema = z.object({
   fullName: z.string().trim().min(2, "Full name required").max(80),
@@ -23,13 +28,14 @@ const CLASSES = ["Class 11th", "Class 12th", "JEE", "NEET", "Bihar Board", "Drop
 
 function SignupPage() {
   const navigate = useNavigate();
+  const { redirect } = Route.useSearch();
   const { user, loading } = useAuth();
   const [form, setForm] = useState({ fullName: "", email: "", phone: "", classLevel: "", password: "" });
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) navigate({ to: "/dashboard", replace: true });
-  }, [user, loading, navigate]);
+    if (!loading && user) navigate({ to: (redirect ? safeRedirect(redirect) : "/dashboard") as string, replace: true } as never);
+  }, [user, loading, navigate, redirect]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -102,7 +108,7 @@ function SignupPage() {
           </form>
 
           <p className="text-sm text-center mt-6 text-muted-foreground">
-            Already have an account? <Link to="/login" className="text-primary font-semibold hover:underline">Sign in</Link>
+            Already have an account? <Link to="/login" search={{ redirect }} className="text-primary font-semibold hover:underline">Sign in</Link>
           </p>
         </div>
       </div>

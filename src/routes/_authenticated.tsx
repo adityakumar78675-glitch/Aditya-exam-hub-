@@ -13,11 +13,8 @@ function AuthLayout() {
   const { user, role, loading, signOut } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const href = useRouterState({ select: (s) => s.location.href });
   const [menuOpen, setMenuOpen] = useState(false);
-
-  useEffect(() => {
-    if (!loading && !user) navigate({ to: "/login", replace: true });
-  }, [user, loading, navigate]);
 
   // Request push permission on first login
   useEffect(() => {
@@ -29,19 +26,19 @@ function AuthLayout() {
     setMenuOpen(false);
   }, [pathname]);
 
-  if (loading || !user) {
+  if (loading) {
     return <div className="min-h-screen grid place-items-center text-muted-foreground">Loading...</div>;
   }
 
   const nav = [
-    { to: "/dashboard", label: "Dashboard", icon: Home },
-    { to: "/batches", label: "Browse Batches", icon: BookOpen },
-    { to: "/live", label: "Live Classes", icon: Video },
-    { to: "/tests", label: "Practice Tests", icon: Trophy },
-    { to: "/community", label: "Community", icon: Users },
-    { to: "/notes", label: "Extra Notes", icon: FileText },
-    { to: "/profile", label: "Profile", icon: User },
-  ];
+    { to: "/dashboard", label: "Dashboard", icon: Home, auth: true },
+    { to: "/batches", label: "Browse Batches", icon: BookOpen, auth: false },
+    { to: "/live", label: "Live Classes", icon: Video, auth: false },
+    { to: "/tests", label: "Practice Tests", icon: Trophy, auth: false },
+    { to: "/community", label: "Community", icon: Users, auth: true },
+    { to: "/notes", label: "Extra Notes", icon: FileText, auth: true },
+    { to: "/profile", label: "Profile", icon: User, auth: true },
+  ].filter((n) => user || !n.auth);
 
   const SidebarInner = (
     <>
@@ -81,18 +78,32 @@ function AuthLayout() {
         )}
       </nav>
       <div className="p-3 border-t border-border">
-        <div className="flex items-center gap-3 p-2">
-          <div className="size-9 rounded-full bg-primary/10 text-primary grid place-items-center font-bold">
-            {(user.email?.[0] ?? "U").toUpperCase()}
+        {user ? (
+          <>
+            <div className="flex items-center gap-3 p-2">
+              <div className="size-9 rounded-full bg-primary/10 text-primary grid place-items-center font-bold">
+                {(user.email?.[0] ?? "U").toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold truncate">{user.email}</p>
+                <p className="text-[10px] uppercase text-muted-foreground">{role ?? "student"}</p>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" className="w-full justify-start mt-2" onClick={async () => { await signOut(); navigate({ to: "/login" }); }}>
+              <LogOut className="size-4 mr-2" /> Sign out
+            </Button>
+          </>
+        ) : (
+          <div className="space-y-2 p-1">
+            <p className="text-xs text-muted-foreground px-1">You are browsing as a guest.</p>
+            <Button size="sm" className="w-full" onClick={() => navigate({ to: "/login", search: { redirect: href } })}>
+              Login
+            </Button>
+            <Button size="sm" variant="secondary" className="w-full" onClick={() => navigate({ to: "/signup", search: { redirect: href } })}>
+              Create Account
+            </Button>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold truncate">{user.email}</p>
-            <p className="text-[10px] uppercase text-muted-foreground">{role ?? "student"}</p>
-          </div>
-        </div>
-        <Button variant="ghost" size="sm" className="w-full justify-start mt-2" onClick={async () => { await signOut(); navigate({ to: "/login" }); }}>
-          <LogOut className="size-4 mr-2" /> Sign out
-        </Button>
+        )}
       </div>
     </>
   );
@@ -137,7 +148,7 @@ function AuthLayout() {
           >
             {menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
-          <NotificationBell />
+          {user ? <NotificationBell /> : null}
         </div>
         <Outlet />
       </main>

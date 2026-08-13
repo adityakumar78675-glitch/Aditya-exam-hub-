@@ -10,9 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RichMarkdown } from "@/components/RichMarkdown";
 import { ArrowLeft, Clock, FileText, Trophy } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { AuthWall } from "@/components/AuthWall";
 
 export const Route = createFileRoute("/_authenticated/tests/$testId/")({
-  component: TestInstructions,
+  component: TestInstructionsGate,
   head: () => ({
     meta: [
       { title: "Test Instructions | Aditya Exam Hub" },
@@ -24,6 +26,13 @@ export const Route = createFileRoute("/_authenticated/tests/$testId/")({
     ],
   }),
 });
+
+function TestInstructionsGate() {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="p-8 text-muted-foreground">Loading...</div>;
+  if (!user) return <AuthWall description="Sign in to view instructions and attempt this test. It's free." />;
+  return <TestInstructions />;
+}
 
 function TestInstructions() {
   const { testId } = Route.useParams();

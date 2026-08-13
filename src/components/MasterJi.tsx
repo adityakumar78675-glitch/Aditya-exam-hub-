@@ -5,6 +5,7 @@ import { RichMarkdown } from "@/components/RichMarkdown";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useLoginGate } from "@/lib/guest";
 import { Button } from "@/components/ui/button";
 import {
   Bot,
@@ -751,13 +752,13 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
 
 export function MasterJiFloatingButton() {
   const { user } = useAuth();
+  const { requireAuth } = useLoginGate();
   const [open, setOpen] = useState(false);
-  if (!user) return null;
   return (
     <>
       {!open && (
         <button
-          onClick={() => setOpen(true)}
+          onClick={() => { if (requireAuth("Master Ji AI Tutor")) setOpen(true); }}
           className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl px-4 py-3 font-semibold transition hover:scale-105"
           aria-label="Open Master Ji AI Tutor"
         >
@@ -765,7 +766,7 @@ export function MasterJiFloatingButton() {
           <span className="hidden sm:inline">Master Ji</span>
         </button>
       )}
-      {open && <MasterJiChat onClose={() => setOpen(false)} />}
+      {open && user && <MasterJiChat onClose={() => setOpen(false)} />}
     </>
   );
 }

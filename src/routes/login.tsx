@@ -3,12 +3,17 @@ import { useEffect, useState } from "react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { safeRedirect } from "@/lib/guest";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/login")({ component: LoginPage });
+export const Route = createFileRoute("/login")({
+  component: LoginPage,
+  validateSearch: (search: Record<string, unknown>): { redirect?: string } =>
+    typeof search.redirect === "string" ? { redirect: search.redirect } : {},
+});
 
 const schema = z.object({
   email: z.string().email("Enter a valid email"),
@@ -17,6 +22,7 @@ const schema = z.object({
 
 function LoginPage() {
   const navigate = useNavigate();
+  const { redirect } = Route.useSearch();
   const { user, role, loading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,9 +30,10 @@ function LoginPage() {
 
   useEffect(() => {
     if (!loading && user) {
-      navigate({ to: role === "admin" ? "/admin" : "/dashboard", replace: true });
+      const dest = redirect ? safeRedirect(redirect) : role === "admin" ? "/admin" : "/dashboard";
+      navigate({ to: dest as string, replace: true } as never);
     }
-  }, [user, role, loading, navigate]);
+  }, [user, role, loading, navigate, redirect]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -76,7 +83,7 @@ function LoginPage() {
           </form>
 
           <p className="text-sm text-center mt-6 text-muted-foreground">
-            New here? <Link to="/signup" className="text-primary font-semibold hover:underline">Create an account</Link>
+            New here? <Link to="/signup" search={{ redirect }} className="text-primary font-semibold hover:underline">Create an account</Link>
           </p>
         </div>
       </div>

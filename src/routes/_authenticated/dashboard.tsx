@@ -1,3 +1,4 @@
+import { AuthWall } from "@/components/AuthWall";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,7 +7,14 @@ import { Button } from "@/components/ui/button";
 import { BookOpen, Radio } from "lucide-react";
 import { HeroBanner } from "@/components/HeroBanner";
 
-export const Route = createFileRoute("/_authenticated/dashboard")({ component: Dashboard });
+export const Route = createFileRoute("/_authenticated/dashboard")({ component: DashboardGate });
+
+function DashboardGate() {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="p-8 text-muted-foreground">Loading...</div>;
+  if (!user) return <AuthWall description="Sign in to see your dashboard, enrolled batches and progress." />;
+  return <Dashboard />;
+}
 
 function Dashboard() {
   const { user } = useAuth();

@@ -1,3 +1,4 @@
+import { AuthWall } from "@/components/AuthWall";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -8,7 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/profile")({ component: ProfilePage });
+export const Route = createFileRoute("/_authenticated/profile")({ component: ProfilePageGate });
+
+function ProfilePageGate() {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="p-8 text-muted-foreground">Loading...</div>;
+  if (!user) return <AuthWall description="Sign in to view and edit your profile." />;
+  return <ProfilePage />;
+}
 
 function ProfilePage() {
   const { user } = useAuth();

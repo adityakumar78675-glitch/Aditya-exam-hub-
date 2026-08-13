@@ -1,3 +1,5 @@
+import { useAuth } from "@/lib/auth";
+import { AuthWall } from "@/components/AuthWall";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -8,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FileText, Search, Download, ExternalLink, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/notes")({ component: NotesPage });
+export const Route = createFileRoute("/_authenticated/notes")({ component: NotesPageGate });
 
 function formatBytes(n?: number | null) {
   if (!n) return "";
@@ -16,6 +18,13 @@ function formatBytes(n?: number | null) {
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
   return `${(n / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+
+function NotesPageGate() {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="p-8 text-muted-foreground">Loading...</div>;
+  if (!user) return <AuthWall description="Sign in to access study notes and private downloads." />;
+  return <NotesPage />;
 }
 
 function NotesPage() {

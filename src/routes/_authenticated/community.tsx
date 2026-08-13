@@ -1,3 +1,4 @@
+import { AuthWall } from "@/components/AuthWall";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -14,7 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/_authenticated/community")({ component: CommunityPage });
+export const Route = createFileRoute("/_authenticated/community")({ component: CommunityPageGate });
 
 const BUCKET = "community-attachments";
 const MAX_SIZE = 50 * 1024 * 1024;
@@ -28,6 +29,13 @@ type Message = {
   created_at: string;
 };
 type Member = { id: string; community_id: string; student_id: string; role: string; status: string };
+
+function CommunityPageGate() {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="p-8 text-muted-foreground">Loading...</div>;
+  if (!user) return <AuthWall description="Join the community to chat with students and mentors. Create a free account to continue." />;
+  return <CommunityPage />;
+}
 
 function CommunityPage() {
   const { user, role } = useAuth();
