@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { MasterJiFloatingButton } from "@/components/MasterJi";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ensurePushOnLogin } from "@/lib/push-client";
+import { useLoginGate } from "@/lib/guest";
 
 export const Route = createFileRoute("/_authenticated")({ component: AuthLayout });
 
 function AuthLayout() {
   const { user, role, loading, signOut } = useAuth();
-  const { promptLogin } = useLoginGate();
+  useLoginGate();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const href = useRouterState({ select: (s) => s.location.href });
@@ -149,7 +150,7 @@ function AuthLayout() {
           >
             {menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
-          <NotificationBell />
+          {user ? <NotificationBell /> : null}
         </div>
         <Outlet />
       </main>
