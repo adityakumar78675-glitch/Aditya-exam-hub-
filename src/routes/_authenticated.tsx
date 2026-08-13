@@ -11,13 +11,11 @@ export const Route = createFileRoute("/_authenticated")({ component: AuthLayout 
 
 function AuthLayout() {
   const { user, role, loading, signOut } = useAuth();
+  const { promptLogin } = useLoginGate();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const href = useRouterState({ select: (s) => s.location.href });
   const [menuOpen, setMenuOpen] = useState(false);
-
-  useEffect(() => {
-    if (!loading && !user) navigate({ to: "/login", replace: true });
-  }, [user, loading, navigate]);
 
   // Request push permission on first login
   useEffect(() => {
@@ -29,19 +27,19 @@ function AuthLayout() {
     setMenuOpen(false);
   }, [pathname]);
 
-  if (loading || !user) {
+  if (loading) {
     return <div className="min-h-screen grid place-items-center text-muted-foreground">Loading...</div>;
   }
 
   const nav = [
-    { to: "/dashboard", label: "Dashboard", icon: Home },
-    { to: "/batches", label: "Browse Batches", icon: BookOpen },
-    { to: "/live", label: "Live Classes", icon: Video },
-    { to: "/tests", label: "Practice Tests", icon: Trophy },
-    { to: "/community", label: "Community", icon: Users },
-    { to: "/notes", label: "Extra Notes", icon: FileText },
-    { to: "/profile", label: "Profile", icon: User },
-  ];
+    { to: "/dashboard", label: "Dashboard", icon: Home, auth: true },
+    { to: "/batches", label: "Browse Batches", icon: BookOpen, auth: false },
+    { to: "/live", label: "Live Classes", icon: Video, auth: false },
+    { to: "/tests", label: "Practice Tests", icon: Trophy, auth: false },
+    { to: "/community", label: "Community", icon: Users, auth: true },
+    { to: "/notes", label: "Extra Notes", icon: FileText, auth: true },
+    { to: "/profile", label: "Profile", icon: User, auth: true },
+  ].filter((n) => user || !n.auth);
 
   const SidebarInner = (
     <>
