@@ -35,7 +35,7 @@ function SignupPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) navigate({ to: redirect ? safeRedirect(redirect) : "/dashboard", replace: true });
+    if (!loading && user) navigate({ to: (redirect ? safeRedirect(redirect) : "/dashboard") as string, replace: true } as never);
   }, [user, loading, navigate, redirect]);
 
   async function onSubmit(e: React.FormEvent) {

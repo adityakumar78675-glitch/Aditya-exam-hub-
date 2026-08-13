@@ -32,7 +32,7 @@ function LoginPage() {
   useEffect(() => {
     if (!loading && user) {
       const dest = redirect ? safeRedirect(redirect) : role === "admin" ? "/admin" : "/dashboard";
-      navigate({ to: dest, replace: true });
+      navigate({ to: dest as string, replace: true } as never);
     }
   }, [user, role, loading, navigate, redirect]);
 
