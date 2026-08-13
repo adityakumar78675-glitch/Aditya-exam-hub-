@@ -1,3 +1,4 @@
+import { AuthWall } from "@/components/AuthWall";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +10,9 @@ import { HeroBanner } from "@/components/HeroBanner";
 export const Route = createFileRoute("/_authenticated/dashboard")({ component: Dashboard });
 
 function Dashboard() {
+  const { user: __u, loading: __l } = useAuth();
+  if (__l) return <div className="p-8 text-muted-foreground">Loading...</div>;
+  if (!__u) return <AuthWall title="Login required" description="Sign in to see your dashboard, enrolled batches and progress." />;
   const { user } = useAuth();
 
   const { data: enrolled = [] } = useQuery({

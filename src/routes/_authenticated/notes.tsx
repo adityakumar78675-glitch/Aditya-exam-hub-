@@ -1,3 +1,5 @@
+import { useAuth } from "@/lib/auth";
+import { AuthWall } from "@/components/AuthWall";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -19,6 +21,9 @@ function formatBytes(n?: number | null) {
 }
 
 function NotesPage() {
+  const { user: __u, loading: __l } = useAuth();
+  if (__l) return <div className="p-8 text-muted-foreground">Loading...</div>;
+  if (!__u) return <AuthWall title="Login required" description="Sign in to access study notes and private downloads." />;
   const [batchId, setBatchId] = useState<string>("all");
   const [subjectId, setSubjectId] = useState<string>("all");
   const [chapterId, setChapterId] = useState<string>("all");

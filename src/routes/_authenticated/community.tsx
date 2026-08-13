@@ -1,3 +1,4 @@
+import { AuthWall } from "@/components/AuthWall";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -30,6 +31,9 @@ type Message = {
 type Member = { id: string; community_id: string; student_id: string; role: string; status: string };
 
 function CommunityPage() {
+  const { user: __u, loading: __l } = useAuth();
+  if (__l) return <div className="p-8 text-muted-foreground">Loading...</div>;
+  if (!__u) return <AuthWall title="Login required" description="Join the community to chat with students and mentors. Create a free account to continue." />;
   const { user, role } = useAuth();
   const [selected, setSelected] = useState<string | null>(null);
   const [showSidebar, setShowSidebar] = useState(true);
