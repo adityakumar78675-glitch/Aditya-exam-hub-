@@ -106,8 +106,9 @@ export const listPublicTests = createServerFn({ method: "GET" }).handler(async (
     for (const q of qs ?? []) counts[q.test_id] = (counts[q.test_id] ?? 0) + 1;
   }
 
-  return (tests ?? []).map((t: Record<string, unknown> & { id: string }) => ({
-    ...t,
+  type PublicTest = NonNullable<typeof tests>[number];
+  return (tests ?? []).map((t: PublicTest) => ({
+    ...(t as PublicTest),
     question_count: counts[t.id] ?? 0,
     attempt_count: 0,
     attempt: null as null | { submitted: boolean; score: number | null; total_marks: number | null },

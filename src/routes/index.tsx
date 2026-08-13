@@ -45,7 +45,7 @@ type Batch = {
   id: string;
   title: string;
   description: string | null;
-  target_exam: string | null;
+  class_level: string | null;
   thumbnail_url: string | null;
   price: number | null;
   discount_price: number | null;
@@ -59,8 +59,7 @@ function Landing() {
     queryFn: async () => {
       const { data } = await supabase
         .from("batches")
-        .select("id, title, description, target_exam, thumbnail_url, price, discount_price")
-        .eq("is_active", true)
+        .select("id, title, description, class_level, thumbnail_url, price, discount_price")
         .order("created_at", { ascending: false })
         .limit(6);
       return (data ?? []) as Batch[];
@@ -186,7 +185,7 @@ function Landing() {
                     </div>
                     <div className="p-4">
                       <div className="flex items-center gap-2 mb-2">
-                        {b.target_exam && <Badge variant="secondary">{b.target_exam}</Badge>}
+                        {b.class_level && <Badge variant="secondary">{b.class_level}</Badge>}
                         {free && <Badge>Free</Badge>}
                       </div>
                       <h3 className="font-bold group-hover:text-primary transition line-clamp-1">{b.title}</h3>
