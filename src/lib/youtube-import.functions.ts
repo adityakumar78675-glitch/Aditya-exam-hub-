@@ -1,80 +1,115 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import type { AnalyzeResult, ExtractedQuestion } from "@/lib/youtube-utils";
+import type { AnalyzeResult } from "@/lib/youtube-utils";
 import { extractYoutubeId, normalizeQuestion } from "@/lib/youtube-utils";
 import {
+  ImportError,
   assertAdmin,
-  buildPrompt,
-  callExtractionAI,
-  decodeHtml,
+  extractQuestions,
   fetchOembed,
   fetchTranscript,
-  fetchWatchPage,
-  firstJsonObject,
-  validateExtracted,
 } from "@/lib/youtube-import.server";
+
+function toClientError(e: unknown): Error {
+  if (e instanceof ImportError) return new Error(e.message);
+  console.error("[youtube-import]", e);
+  return new Error("Something went wrong while importing. Please try again.");
+}
 
 export const adminAnalyzeYoutubeSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { url: string; translate?: "none" | "hi" | "en" }) => d)
   .handler(async ({ data, context }): Promise<AnalyzeResult> => {
-    await assertAdmin(context.supabase as never, context.userId);
+    try {
+      await assertAdmin(context.supabase as never, context.userId);
 
-    const videoId = extractYoutubeId(data.url);
-    if (!videoId) throw new Error("Please enter a valid YouTube video URL.");
+      const videoId = extractYoutubeId(data.url);
+      if (!videoId) throw new ImportError("invalid_url", "Please enter a valid YouTube video URL.");
 
-    const apiKey = process.env["LOVABLE_API_KEY"];
-    if (!apiKey) throw new Error("AI is not configured");
+      const apiKey = process.env["LOVABLE_API_KEY"];
+      if (!apiKey) throw new ImportError("provider_failure", "AI is not configured.");
 
-    const html = await fetchWatchPage(videoId);
-    if (/Video unavailable/.test(html) && !/"captionTracks"/.test(html)) {
-      throw new Error("This video is unavailable or private.");
-    }
+      const meta = await fetchOembed(videoId);
+      const base = {
+        video_id: videoId,
+        url: `https://www.youtube.com/watch?v=${videoId}`,
+        title: meta.title || "YouTube video",
+        channel: meta.channel,
+        duration_seconds: null as number | null,
+        transcript_language: null as string | null,
+      };
 
-    const meta = await fetchOembed(videoId);
-    const title = meta.title || decodeHtml(html.match(/"title":"(.*?)"/)?.[1] ?? "") || "YouTube video";
-    const durationSeconds = Number(html.match(/"lengthSeconds":"(\d+)"/)?.[1] ?? "") || null;
+      const { text: transcript, language } = await fetchTranscript(videoId);
+      if (!transcript || transcript.length < 200) {
+        return {
+          ...base,
+          transcript_language: language,
+          transcript_status: "unavailable" as const,
+          transcript_chars: transcript.length,
+          truncated: false,
+          questions: [],
+        };
+      }
 
-    const { text: transcript, language } = await fetchTranscript(html);
-    const base = {
-      video_id: videoId,
-      url: `https://www.youtube.com/watch?v=${videoId}`,
-      title,
-      channel: meta.channel,
-      duration_seconds: durationSeconds,
-      transcript_language: language,
-    };
-
-    if (!transcript || transcript.length < 200) {
+      const { truncated, questions } = await extractQuestions(apiKey, transcript, data.translate);
       return {
         ...base,
-        transcript_status: "unavailable" as const,
+        transcript_language: language,
+        transcript_status: "available" as const,
         transcript_chars: transcript.length,
-        truncated: false,
-        questions: [],
+        truncated,
+        questions,
       };
+    } catch (e) {
+      throw toClientError(e);
     }
-
-    const MAX = 90000;
-    const truncated = transcript.length > MAX;
-    const content = await callExtractionAI(apiKey, buildPrompt(truncated ? transcript.slice(0, MAX) : transcript, data.translate));
-    const objText = firstJsonObject(content);
-    if (!objText) throw new Error("AI returned an unexpected response. Please try again.");
-    let parsed: { questions?: ExtractedQuestion[] };
-    try {
-      parsed = JSON.parse(objText) as { questions?: ExtractedQuestion[] };
-    } catch {
-      throw new Error("AI returned invalid JSON. Please try again.");
-    }
-
-    return {
-      ...base,
-      transcript_status: "available" as const,
-      transcript_chars: transcript.length,
-      truncated,
-      questions: (parsed.questions ?? []).map(validateExtracted),
-    };
   });
+
+/** Fallback path: admin pastes the transcript manually. */
+export const adminExtractFromTranscript = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { url?: string; transcript: string; translate?: "none" | "hi" | "en" }) => d)
+  .handler(async ({ data, context }): Promise<AnalyzeResult> => {
+    try {
+      await assertAdmin(context.supabase as never, context.userId);
+      const transcript = data.transcript.trim();
+      if (transcript.length < 200) {
+        throw new ImportError("empty_transcript", "The transcript is too short to extract questions from.");
+      }
+      const apiKey = process.env["LOVABLE_API_KEY"];
+      if (!apiKey) throw new ImportError("provider_failure", "AI is not configured.");
+
+      const videoId = data.url ? extractYoutubeId(data.url) : null;
+      let title = "Pasted transcript";
+      let channel = "";
+      if (videoId) {
+        try {
+          const meta = await fetchOembed(videoId);
+          title = meta.title || title;
+          channel = meta.channel;
+        } catch {
+          /* metadata is optional for the paste flow */
+        }
+      }
+
+      const { truncated, questions } = await extractQuestions(apiKey, transcript, data.translate);
+      return {
+        video_id: videoId ?? "",
+        url: videoId ? `https://www.youtube.com/watch?v=${videoId}` : "",
+        title,
+        channel,
+        duration_seconds: null,
+        transcript_language: null,
+        transcript_status: "available" as const,
+        transcript_chars: transcript.length,
+        truncated,
+        questions,
+      };
+    } catch (e) {
+      throw toClientError(e);
+    }
+  });
+
 
 export const adminImportYoutubeQuestions = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
