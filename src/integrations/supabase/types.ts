@@ -336,10 +336,16 @@ export type Database = {
       extra_notes: {
         Row: {
           batch_id: string
+          book_author: string | null
+          book_isbn: string | null
+          book_publisher: string | null
           category: string
           chapter_id: string | null
+          cover_source: string | null
+          cover_url: string | null
           created_at: string
           description: string | null
+          download_count: number
           file_name: string | null
           file_size: number | null
           file_type: string | null
@@ -353,10 +359,16 @@ export type Database = {
         }
         Insert: {
           batch_id: string
+          book_author?: string | null
+          book_isbn?: string | null
+          book_publisher?: string | null
           category?: string
           chapter_id?: string | null
+          cover_source?: string | null
+          cover_url?: string | null
           created_at?: string
           description?: string | null
+          download_count?: number
           file_name?: string | null
           file_size?: number | null
           file_type?: string | null
@@ -370,10 +382,16 @@ export type Database = {
         }
         Update: {
           batch_id?: string
+          book_author?: string | null
+          book_isbn?: string | null
+          book_publisher?: string | null
           category?: string
           chapter_id?: string | null
+          cover_source?: string | null
+          cover_url?: string | null
           created_at?: string
           description?: string | null
+          download_count?: number
           file_name?: string | null
           file_size?: number | null
           file_type?: string | null
@@ -1099,6 +1117,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_note_download: {
+        Args: { _note_id: string }
+        Returns: undefined
       }
       is_blocked: { Args: { _uid: string }; Returns: boolean }
       is_community_banned: {
