@@ -189,6 +189,19 @@ export function YoutubeImportDialog({
     onError: (e: Error) => toast.error(e.message || "Network failure. Please try again."),
   });
 
+  const extractAudio = useMutation({
+    mutationFn: (file: File) => {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("translate", translate);
+      if (url) fd.append("url", url);
+      return audioFn({ data: fd });
+    },
+    onSuccess: applyResult,
+    onError: (e: Error) => toast.error(e.message || "Automatic transcription could not be completed."),
+  });
+
+
   const selectedRows = rows.filter((r) => r.selected);
   const readyRows = rows.filter((r) => !localReview(r));
   const reviewCount = rows.length - readyRows.length;
