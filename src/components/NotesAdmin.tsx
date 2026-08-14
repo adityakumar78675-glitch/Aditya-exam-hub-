@@ -329,13 +329,13 @@ export function NotesAdmin() {
 
         {uploading && (
           <div>
-            <div className="flex justify-between text-xs mb-1"><span>Uploading…</span><span>{progress}%</span></div>
+            <div className="flex justify-between text-xs mb-1"><span>{coverStatus || "Uploading…"}</span><span>{progress}%</span></div>
             <div className="h-2 bg-muted rounded-full overflow-hidden"><div className="h-full bg-primary transition-all" style={{ width: `${progress}%` }} /></div>
           </div>
         )}
 
         <Button onClick={handleUpload} disabled={uploading || !file || !batchId} className="w-full md:w-auto">
-          {uploading ? <><Loader2 className="size-4 mr-2 animate-spin" />Uploading…</> : <><Upload className="size-4 mr-2" />Upload Note</>}
+          {uploading ? <><Loader2 className="size-4 mr-2 animate-spin" />{coverStatus || "Uploading…"}</> : <><Upload className="size-4 mr-2" />Upload Note</>}
         </Button>
       </div>
 
@@ -349,17 +349,38 @@ export function NotesAdmin() {
             {filtered.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">No notes yet.</p>}
             {filtered.map((n: any) => (
               <div key={n.id} className="flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-muted/30">
-                <FileText className="size-5 text-primary shrink-0" />
+                <div className="w-12 h-16 rounded-lg overflow-hidden bg-muted grid place-items-center shrink-0">
+                  {n.cover_url ? (
+                    <img src={n.cover_url} alt="" className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                  ) : (
+                    <FileText className="size-5 text-primary" />
+                  )}
+                </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">{n.title}</p>
                   <p className="text-xs text-muted-foreground truncate">{n.file_name} · {formatBytes(n.file_size)} · {n.category}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {new Date(n.created_at).toLocaleDateString()} · <Download className="size-3 inline -mt-0.5" /> {n.download_count ?? 0}
+                    {n.cover_source ? ` · cover: ${n.cover_source}` : " · no cover"}
+                  </p>
                 </div>
+                {rowBusy === n.id && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+                <label title="Replace cover image" className="inline-flex">
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) replaceCover(n, f); }} />
+                  <span className="inline-flex items-center justify-center h-8 w-8 rounded-md hover:bg-muted cursor-pointer"><ImageIcon className="size-4" /></span>
+                </label>
+                <Button size="sm" variant="ghost" title="Auto-detect cover" disabled={rowBusy === n.id} onClick={() => redetectCover(n)}><RefreshCw className="size-4" /></Button>
+                <label title="Replace file" className="inline-flex">
+                  <input type="file" className="hidden" accept=".pdf,.ppt,.pptx,.doc,.docx,.jpg,.jpeg,.png,.webp,.zip" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) replacePdf(n, f); }} />
+                  <span className="inline-flex items-center justify-center h-8 w-8 rounded-md hover:bg-muted cursor-pointer"><Upload className="size-4" /></span>
+                </label>
                 <Button size="sm" variant="ghost" onClick={() => setEditing(n)}><Pencil className="size-4" /></Button>
                 <Button size="sm" variant="ghost" onClick={() => { if (confirm("Delete this note?")) delNote.mutate(n); }}><Trash2 className="size-4 text-destructive" /></Button>
               </div>
             ))}
           </div>
         </div>
+
       )}
 
       {editing && (
