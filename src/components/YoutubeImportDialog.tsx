@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import {
   adminAnalyzeYoutubeSession,
+  adminExtractFromTranscript,
   adminGetTestQuestionKeys,
   adminImportYoutubeQuestions,
 } from "@/lib/youtube-import.functions";
@@ -17,7 +18,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { AlertTriangle, ArrowDown, ArrowUp, CheckCircle2, Loader2, Trash2, Youtube } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, CheckCircle2, FileText, Loader2, Trash2, Youtube } from "lucide-react";
 
 type Row = {
   key: string;
@@ -68,10 +69,13 @@ export function YoutubeImportDialog({
   const [rows, setRows] = useState<Row[]>([]);
   const [targetTest, setTargetTest] = useState(testId);
   const [dupMode, setDupMode] = useState<"skip" | "add">("skip");
+  const [showPaste, setShowPaste] = useState(false);
+  const [transcript, setTranscript] = useState("");
 
   const analyzeFn = useServerFn(adminAnalyzeYoutubeSession);
   const importFn = useServerFn(adminImportYoutubeQuestions);
   const keysFn = useServerFn(adminGetTestQuestionKeys);
+  const transcriptFn = useServerFn(adminExtractFromTranscript);
 
   const { data: tests } = useQuery({
     queryKey: ["admin-tests-min"],
@@ -94,9 +98,7 @@ export function YoutubeImportDialog({
 
   const dupSet = useMemo(() => new Set(existingKeys ?? []), [existingKeys]);
 
-  const analyze = useMutation({
-    mutationFn: () => analyzeFn({ data: { url, translate } }),
-    onSuccess: (res) => {
+  const applyResult = (res: AnalyzeResult) => {
       setInfo(res);
       setRows(
         res.questions.map((q, i) => ({
@@ -112,13 +114,27 @@ export function YoutubeImportDialog({
         })),
       );
       if (res.transcript_status === "unavailable") {
-        toast.error("Transcript is unavailable for this video. Please provide a transcript or upload the source material.");
+        setShowPaste(true);
+        toast.error("Unable to automatically retrieve the transcript. You can paste it manually below.");
       } else if (!res.questions.length) {
         toast.warning("No objective questions were found in this session's transcript.");
       } else {
         toast.success(`${res.questions.length} questions detected`);
       }
+  };
+
+  const analyze = useMutation({
+    mutationFn: () => analyzeFn({ data: { url, translate } }),
+    onSuccess: applyResult,
+    onError: (e: Error) => {
+      setShowPaste(true);
+      toast.error(e.message || "Network failure. Please try again.");
     },
+  });
+
+  const extractPasted = useMutation({
+    mutationFn: () => transcriptFn({ data: { url: url || undefined, transcript, translate } }),
+    onSuccess: applyResult,
     onError: (e: Error) => toast.error(e.message || "Network failure. Please try again."),
   });
 
@@ -242,6 +258,35 @@ export function YoutubeImportDialog({
                   )}
                 </>
               )}
+            </div>
+          )}
+
+          {(showPaste || info?.transcript_status === "unavailable") && (
+            <div className="rounded-lg border border-dashed p-3 space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <FileText className="size-4" /> Paste Transcript
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Unable to automatically retrieve the transcript. Paste the session transcript here and the same AI
+                extraction will run on it.
+              </p>
+              <Textarea
+                rows={6}
+                placeholder="Paste the full transcript of the session..."
+                value={transcript}
+                onChange={(e) => setTranscript(e.target.value)}
+              />
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => extractPasted.mutate()}
+                  disabled={transcript.trim().length < 200 || extractPasted.isPending}
+                >
+                  {extractPasted.isPending ? <Loader2 className="size-4 mr-1 animate-spin" /> : null}
+                  Extract Questions
+                </Button>
+                <span className="text-xs text-muted-foreground">{transcript.trim().length} characters</span>
+              </div>
             </div>
           )}
 
