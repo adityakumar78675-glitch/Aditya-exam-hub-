@@ -67,6 +67,8 @@ export function NotesAdmin() {
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [coverStatus, setCoverStatus] = useState<string | null>(null);
+  const [rowBusy, setRowBusy] = useState<string | null>(null);
   const [editing, setEditing] = useState<any | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
