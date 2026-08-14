@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import {
   adminAnalyzeYoutubeSession,
+  adminExtractFromAudio,
   adminExtractFromTranscript,
   adminGetTestQuestionKeys,
   adminImportYoutubeQuestions,
@@ -18,7 +19,57 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { AlertTriangle, ArrowDown, ArrowUp, CheckCircle2, FileText, Loader2, Trash2, Youtube } from "lucide-react";
+import { AlertTriangle, ArrowDown, ArrowUp, CheckCircle2, FileText, Loader2, Mic, Trash2, Youtube } from "lucide-react";
+
+const PROGRESS_STEPS = [
+  "Video identified",
+  "Obtaining transcript",
+  "Cleaning transcript",
+  "Detecting questions",
+  "Extracting options",
+  "Checking answers",
+  "Generating explanations",
+  "Preparing questions",
+];
+
+function AnalyzeProgress({ active }: { active: boolean }) {
+  const [step, setStep] = useState(0);
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (!active) {
+      setStep(0);
+      return;
+    }
+    timer.current = setInterval(() => setStep((s) => Math.min(s + 1, PROGRESS_STEPS.length - 1)), 2200);
+    return () => {
+      if (timer.current) clearInterval(timer.current);
+    };
+  }, [active]);
+  if (!active) return null;
+  return (
+    <div className="rounded-lg border p-3 space-y-1.5">
+      <p className="text-sm font-medium flex items-center gap-2">
+        <Loader2 className="size-4 animate-spin" /> Analyzing YouTube video...
+      </p>
+      {PROGRESS_STEPS.map((label, i) => (
+        <p
+          key={label}
+          className={`text-xs flex items-center gap-2 ${i <= step ? "text-foreground" : "text-muted-foreground/60"}`}
+        >
+          {i < step ? (
+            <CheckCircle2 className="size-3 text-primary" />
+          ) : i === step ? (
+            <Loader2 className="size-3 animate-spin" />
+          ) : (
+            <span className="size-3" />
+          )}
+          {label}
+        </p>
+      ))}
+    </div>
+  );
+}
+
 
 type Row = {
   key: string;
