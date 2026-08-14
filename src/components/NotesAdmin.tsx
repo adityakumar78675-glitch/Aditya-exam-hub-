@@ -119,12 +119,17 @@ export function NotesAdmin() {
     if (!batchId) { toast.error("Select a batch"); return; }
     if (!file) { toast.error("Choose a file"); return; }
     if (!title.trim()) { toast.error("Enter a title"); return; }
-    setUploading(true); setProgress(0);
+    setUploading(true); setProgress(0); setCoverStatus(null);
     try {
       const ext = file.name.split(".").pop() || "bin";
       const path = `${batchId}/${subjectId !== "all" ? subjectId : "general"}/${chapterId !== "all" ? chapterId : "root"}/${crypto.randomUUID()}.${ext}`;
       await uploadWithProgress(path, file, setProgress);
       const { data: signed } = await supabase.storage.from("extra-notes").createSignedUrl(path, 60 * 60 * 24 * 365);
+
+      // Cover detection never blocks the upload
+      const cover = await detectCover(file, batchId, title.trim(), setCoverStatus).catch(() => null);
+      setCoverStatus(null);
+
       const { error } = await supabase.from("extra_notes").insert({
         batch_id: batchId,
         subject_id: subjectId !== "all" ? subjectId : null,
@@ -137,6 +142,11 @@ export function NotesAdmin() {
         file_name: file.name,
         file_size: file.size,
         file_type: file.type || ext,
+        cover_url: cover?.cover_url ?? null,
+        cover_source: cover?.cover_source ?? null,
+        book_author: cover?.book_author ?? null,
+        book_isbn: cover?.book_isbn ?? null,
+        book_publisher: cover?.book_publisher ?? null,
       });
       if (error) throw error;
       toast.success("Uploaded successfully");
@@ -147,7 +157,68 @@ export function NotesAdmin() {
       toast.error(e.message || "Upload failed");
     } finally {
       setUploading(false);
+      setCoverStatus(null);
     }
+  };
+
+  const replacePdf = async (n: any, f: File) => {
+    const err = validateFile(f);
+    if (err) { toast.error(err); return; }
+    setRowBusy(n.id);
+    try {
+      const ext = f.name.split(".").pop() || "bin";
+      const path = `${n.batch_id}/${n.subject_id || "general"}/${n.chapter_id || "root"}/${crypto.randomUUID()}.${ext}`;
+      await uploadWithProgress(path, f, () => {});
+      const { data: signed } = await supabase.storage.from("extra-notes").createSignedUrl(path, 60 * 60 * 24 * 365);
+      const { error } = await supabase.from("extra_notes").update({
+        pdf_url: signed?.signedUrl || "",
+        storage_path: path,
+        file_name: f.name,
+        file_size: f.size,
+        file_type: f.type || ext,
+      }).eq("id", n.id);
+      if (error) throw error;
+      if (n.storage_path) await supabase.storage.from("extra-notes").remove([n.storage_path]);
+      toast.success("PDF replaced");
+      qc.invalidateQueries({ queryKey: ["notes-admin-list"] });
+    } catch (e: any) { toast.error(e.message || "Replace failed"); } finally { setRowBusy(null); }
+  };
+
+  const replaceCover = async (n: any, img: File) => {
+    if (!img.type.startsWith("image/")) { toast.error("Choose an image file"); return; }
+    setRowBusy(n.id);
+    try {
+      const up = await uploadCoverBlob(img, n.batch_id);
+      if (!up) throw new Error("Cover upload failed");
+      const { error } = await supabase.from("extra_notes").update({ cover_url: up.url, cover_source: "manual" }).eq("id", n.id);
+      if (error) throw error;
+      toast.success("Cover updated");
+      qc.invalidateQueries({ queryKey: ["notes-admin-list"] });
+    } catch (e: any) { toast.error(e.message); } finally { setRowBusy(null); }
+  };
+
+  const redetectCover = async (n: any) => {
+    setRowBusy(n.id);
+    try {
+      const url = n.storage_path
+        ? (await supabase.storage.from("extra-notes").createSignedUrl(n.storage_path, 600)).data?.signedUrl
+        : n.pdf_url;
+      if (!url) throw new Error("File not found");
+      const blob = await (await fetch(url)).blob();
+      const f = new File([blob], n.file_name || "file.pdf", { type: blob.type || "application/pdf" });
+      const cover = await detectCover(f, n.batch_id, n.title);
+      if (!cover.cover_url) { toast.info("No cover could be detected"); return; }
+      const { error } = await supabase.from("extra_notes").update({
+        cover_url: cover.cover_url,
+        cover_source: cover.cover_source,
+        book_author: cover.book_author ?? n.book_author,
+        book_isbn: cover.book_isbn ?? n.book_isbn,
+        book_publisher: cover.book_publisher ?? n.book_publisher,
+      }).eq("id", n.id);
+      if (error) throw error;
+      toast.success("Cover detected");
+      qc.invalidateQueries({ queryKey: ["notes-admin-list"] });
+    } catch (e: any) { toast.error(e.message || "Detection failed"); } finally { setRowBusy(null); }
   };
 
   const delNote = useMutation({
@@ -175,6 +246,8 @@ export function NotesAdmin() {
     onSuccess: () => { toast.success("Updated"); setEditing(null); qc.invalidateQueries({ queryKey: ["notes-admin-list"] }); },
     onError: (e: any) => toast.error(e.message),
   });
+
+
 
   return (
     <div className="space-y-6">
