@@ -58,6 +58,12 @@ function ResultPage() {
   const [lang, setLang] = useState<"en" | "hi">("en");
   const [current, setCurrent] = useState(0);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const { user } = useAuth();
+  const studentName =
+    (user?.user_metadata?.["full_name"] as string | undefined) ||
+    (user?.user_metadata?.["name"] as string | undefined) ||
+    user?.email ||
+    "Student";
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["test-result", testId, search.attempt ?? "latest"],
