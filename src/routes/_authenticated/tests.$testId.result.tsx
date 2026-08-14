@@ -10,6 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RichMarkdown } from "@/components/RichMarkdown";
+import { ResultPdfDialog } from "@/components/ResultPdfDialog";
+import type { PdfSolution } from "@/lib/result-pdf";
+import { useAuth } from "@/lib/auth";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   CheckCircle2,
@@ -55,6 +58,12 @@ function ResultPage() {
   const [lang, setLang] = useState<"en" | "hi">("en");
   const [current, setCurrent] = useState(0);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const { user } = useAuth();
+  const studentName =
+    (user?.user_metadata?.["full_name"] as string | undefined) ||
+    (user?.user_metadata?.["name"] as string | undefined) ||
+    user?.email ||
+    "Student";
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["test-result", testId, search.attempt ?? "latest"],
@@ -192,6 +201,32 @@ function ResultPage() {
             <Button variant={tab === "solutions" ? "default" : "outline"} onClick={() => setTab("solutions")}>
               View Solutions
             </Button>
+          )}
+          {solutions && solutions.length > 0 && (
+            <ResultPdfDialog
+              lang={lang}
+              meta={{
+                testTitle: test.title,
+                subject: test.subject ?? null,
+                studentName,
+                date: attempt.submitted_at
+                  ? new Date(attempt.submitted_at).toLocaleDateString()
+                  : new Date().toLocaleDateString(),
+                score: attempt.score,
+                totalMarks: attempt.total_marks,
+                accuracy,
+                totalQuestions,
+                attempted,
+                correct: attempt.correct,
+                incorrect: attempt.incorrect,
+                unattempted: attempt.unattempted,
+                attemptNumber: attempt.attempt_number,
+              }}
+              items={solutions.map((s, i) => ({
+                sol: s as unknown as PdfSolution,
+                status: statuses[i]!,
+              }))}
+            />
           )}
           {canStartNew && (
             <Button variant="secondary" onClick={onRetake} disabled={busy}>
