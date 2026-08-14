@@ -281,7 +281,27 @@ export function sanitizePdfHtml(root: HTMLElement): void {
   }
 }
 
+/** Pins <html>/<body> to PDF-safe colors during capture; returns a restore fn. */
+function lockDocumentColors(): () => void {
+  const targets: HTMLElement[] = [document.documentElement, document.body];
+  const saved = targets.map((t) => t.getAttribute("style"));
+  for (const t of targets) {
+    t.style.setProperty("background-color", "#ffffff", "important");
+    t.style.setProperty("background-image", "none", "important");
+    t.style.setProperty("color", INK, "important");
+    t.style.setProperty("border-color", LINE, "important");
+  }
+  return () => {
+    targets.forEach((t, i) => {
+      const s = saved[i];
+      if (s == null) t.removeAttribute("style");
+      else t.setAttribute("style", s);
+    });
+  };
+}
+
 /* ---------------- generation ---------------- */
+
 
 export function pdfFileName(kind: PdfKind, testTitle: string): string {
   const safe = testTitle.replace(/[^\p{L}\p{N}]+/gu, "").slice(0, 60) || "Test";
