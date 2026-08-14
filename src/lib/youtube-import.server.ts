@@ -3,14 +3,29 @@ import type { ExtractedQuestion } from "./youtube-utils";
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 
-type CaptionTrack = { baseUrl: string; languageCode?: string; kind?: string };
+export type ImportErrorCode =
+  | "invalid_url"
+  | "video_unavailable"
+  | "transcript_unavailable"
+  | "rate_limited"
+  | "provider_failure"
+  | "empty_transcript"
+  | "ai_failure";
+
+export class ImportError extends Error {
+  code: ImportErrorCode;
+  constructor(code: ImportErrorCode, message: string) {
+    super(message);
+    this.code = code;
+  }
+}
 
 export async function assertAdmin(
   supabase: { rpc: (n: string, a: Record<string, unknown>) => Promise<{ data: unknown }> },
   userId: string,
 ) {
   const { data } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
-  if (!data) throw new Error("Forbidden");
+  if (!data) throw new ImportError("provider_failure", "Forbidden");
 }
 
 export function decodeHtml(s: string) {
@@ -23,59 +38,129 @@ export function decodeHtml(s: string) {
     .replace(/&#(\d+);/g, (_, d: string) => String.fromCharCode(Number(d)));
 }
 
-export async function fetchWatchPage(videoId: string): Promise<string> {
-  const res = await fetch(`https://www.youtube.com/watch?v=${videoId}&hl=en`, {
-    headers: { "User-Agent": UA, "Accept-Language": "en-US,en;q=0.9" },
-  });
-  if (!res.ok) throw new Error(`Could not reach YouTube (status ${res.status}).`);
-  return await res.text();
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Fetch with a small, bounded exponential backoff. At most 3 attempts, and a 429
+ * is surfaced as a rate_limited ImportError instead of being retried forever.
+ */
+export async function fetchWithBackoff(url: string, init?: RequestInit): Promise<Response> {
+  const delays = [700, 2200];
+  let lastStatus = 0;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        ...init,
+        headers: { "User-Agent": UA, "Accept-Language": "en-US,en;q=0.9", ...(init?.headers ?? {}) },
+      });
+    } catch {
+      if (attempt === 2) throw new ImportError("provider_failure", "Network error while contacting the transcript service.");
+      await sleep(delays[attempt]!);
+      continue;
+    }
+    if (res.status === 429 || res.status === 503) {
+      lastStatus = res.status;
+      if (attempt === 2) break;
+      await sleep(delays[attempt]!);
+      continue;
+    }
+    return res;
+  }
+  throw new ImportError(
+    "rate_limited",
+    lastStatus === 429
+      ? "YouTube is temporarily rate-limiting requests. Please try again later."
+      : "The transcript service is temporarily unavailable. Please try again later.",
+  );
 }
 
+/** Public oEmbed endpoint — official, cache-friendly metadata source. */
 export async function fetchOembed(videoId: string) {
-  try {
-    const oe = await fetch(
-      `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
-      { headers: { "User-Agent": UA } },
-    );
-    if (!oe.ok) return { title: "", channel: "" };
-    const j = (await oe.json()) as { title?: string; author_name?: string };
-    return { title: j.title ?? "", channel: j.author_name ?? "" };
-  } catch {
-    return { title: "", channel: "" };
+  const res = await fetchWithBackoff(
+    `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
+  );
+  if (res.status === 404 || res.status === 401 || res.status === 403) {
+    throw new ImportError("video_unavailable", "This video is unavailable, private or age-restricted.");
   }
+  if (!res.ok) return { title: "", channel: "", found: false };
+  const j = (await res.json()) as { title?: string; author_name?: string };
+  return { title: j.title ?? "", channel: j.author_name ?? "", found: true };
 }
 
-function parseTracks(html: string): CaptionTrack[] {
-  const m = html.match(/"captionTracks":(\[.*?\])/);
-  if (!m?.[1]) return [];
-  try {
-    return JSON.parse(m[1].replace(/\\u0026/g, "&")) as CaptionTrack[];
-  } catch {
-    return [];
+type Track = { lang: string; name: string; kind: string };
+
+function parseTrackList(xml: string): Track[] {
+  const out: Track[] = [];
+  for (const m of xml.matchAll(/<track\b([^>]*)\/?>/g)) {
+    const attrs = m[1] ?? "";
+    const lang = /lang_code="([^"]*)"/.exec(attrs)?.[1] ?? "";
+    const name = /name="([^"]*)"/.exec(attrs)?.[1] ?? "";
+    const kind = /kind="([^"]*)"/.exec(attrs)?.[1] ?? "";
+    if (lang) out.push({ lang, name: decodeHtml(name), kind });
   }
+  return out;
 }
 
-export async function fetchTranscript(html: string) {
-  const tracks = parseTracks(html);
-  if (!tracks.length) return { text: "", language: null as string | null };
+function parseJson3(json: { events?: { segs?: { utf8?: string }[] }[] }) {
+  return (json.events ?? [])
+    .map((e) => (e.segs ?? []).map((s) => s.utf8 ?? "").join(""))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parseTimedTextXml(xml: string) {
+  return [...xml.matchAll(/<text[^>]*>([\s\S]*?)<\/text>/g)]
+    .map((m) => decodeHtml((m[1] ?? "").replace(/<[^>]+>/g, "")))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Uses the public timedtext caption API (no watch-page scraping) to list and
+ * download publicly published captions.
+ */
+export async function fetchTranscript(videoId: string): Promise<{ text: string; language: string | null }> {
+  const listRes = await fetchWithBackoff(
+    `https://video.google.com/timedtext?type=list&v=${encodeURIComponent(videoId)}`,
+  );
+  if (!listRes.ok) throw new ImportError("transcript_unavailable", "Captions could not be listed for this video.");
+  const tracks = parseTrackList(await listRes.text());
+  if (!tracks.length) return { text: "", language: null };
+
   const preferred =
-    tracks.find((t) => t.languageCode?.startsWith("hi") && t.kind !== "asr") ??
-    tracks.find((t) => t.languageCode?.startsWith("en") && t.kind !== "asr") ??
+    tracks.find((t) => t.lang.startsWith("hi") && t.kind !== "asr") ??
+    tracks.find((t) => t.lang.startsWith("en") && t.kind !== "asr") ??
     tracks.find((t) => t.kind !== "asr") ??
     tracks[0]!;
-  try {
-    const res = await fetch(decodeHtml(preferred.baseUrl) + "&fmt=json3", { headers: { "User-Agent": UA } });
-    if (!res.ok) return { text: "", language: preferred.languageCode ?? null };
-    const json = (await res.json()) as { events?: { segs?: { utf8?: string }[] }[] };
-    const text = (json.events ?? [])
-      .map((e) => (e.segs ?? []).map((s) => s.utf8 ?? "").join(""))
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
-    return { text, language: preferred.languageCode ?? null };
-  } catch {
-    return { text: "", language: preferred.languageCode ?? null };
+
+  const base = `https://video.google.com/timedtext?v=${encodeURIComponent(videoId)}&lang=${encodeURIComponent(
+    preferred.lang,
+  )}${preferred.name ? `&name=${encodeURIComponent(preferred.name)}` : ""}${
+    preferred.kind ? `&kind=${encodeURIComponent(preferred.kind)}` : ""
+  }`;
+
+  const jsonRes = await fetchWithBackoff(`${base}&fmt=json3`);
+  if (jsonRes.ok) {
+    const body = await jsonRes.text();
+    if (body.trim().startsWith("{")) {
+      try {
+        const text = parseJson3(JSON.parse(body) as { events?: { segs?: { utf8?: string }[] }[] });
+        if (text) return { text, language: preferred.lang };
+      } catch {
+        /* fall through to xml */
+      }
+    } else if (body.includes("<text")) {
+      const text = parseTimedTextXml(body);
+      if (text) return { text, language: preferred.lang };
+    }
   }
+
+  const xmlRes = await fetchWithBackoff(base);
+  if (!xmlRes.ok) return { text: "", language: preferred.lang };
+  return { text: parseTimedTextXml(await xmlRes.text()), language: preferred.lang };
 }
 
 export function firstJsonObject(text: string): string | null {
@@ -171,9 +256,29 @@ export async function callExtractionAI(apiKey: string, prompt: string) {
       ],
     }),
   });
-  if (res.status === 429) throw new Error("AI rate limit reached. Please try again shortly.");
-  if (res.status === 402) throw new Error("AI credits exhausted. Please add credits to continue.");
-  if (!res.ok) throw new Error(`AI extraction failed [${res.status}].`);
+  if (res.status === 429) throw new ImportError("rate_limited", "AI rate limit reached. Please try again shortly.");
+  if (res.status === 402) throw new ImportError("ai_failure", "AI credits exhausted. Please add credits to continue.");
+  if (!res.ok) throw new ImportError("ai_failure", "AI extraction failed. Please try again.");
   const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
   return json.choices?.[0]?.message?.content ?? "";
+}
+
+/** Shared transcript -> questions step used by both the URL flow and pasted transcripts. */
+export async function extractQuestions(
+  apiKey: string,
+  transcript: string,
+  translate: "none" | "hi" | "en" | undefined,
+) {
+  const MAX = 90000;
+  const truncated = transcript.length > MAX;
+  const content = await callExtractionAI(apiKey, buildPrompt(truncated ? transcript.slice(0, MAX) : transcript, translate));
+  const objText = firstJsonObject(content);
+  if (!objText) throw new ImportError("ai_failure", "AI returned an unexpected response. Please try again.");
+  let parsed: { questions?: ExtractedQuestion[] };
+  try {
+    parsed = JSON.parse(objText) as { questions?: ExtractedQuestion[] };
+  } catch {
+    throw new ImportError("ai_failure", "AI returned invalid JSON. Please try again.");
+  }
+  return { truncated, questions: (parsed.questions ?? []).map(validateExtracted) };
 }
