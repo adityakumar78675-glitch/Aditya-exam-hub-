@@ -937,6 +937,8 @@ export type Database = {
           created_at: string
           id: string
           image_url: string | null
+          imported_at: string | null
+          imported_by: string | null
           negative_marks: number | null
           options_en: Json
           options_hi: Json
@@ -946,9 +948,13 @@ export type Database = {
           question_hi: string | null
           solution_en: string | null
           solution_hi: string | null
+          source_type: string | null
           test_id: string
           type: Database["public"]["Enums"]["question_type"]
           updated_at: string
+          youtube_title: string | null
+          youtube_url: string | null
+          youtube_video_id: string | null
         }
         Insert: {
           correct_bool?: boolean | null
@@ -957,6 +963,8 @@ export type Database = {
           created_at?: string
           id?: string
           image_url?: string | null
+          imported_at?: string | null
+          imported_by?: string | null
           negative_marks?: number | null
           options_en?: Json
           options_hi?: Json
@@ -966,9 +974,13 @@ export type Database = {
           question_hi?: string | null
           solution_en?: string | null
           solution_hi?: string | null
+          source_type?: string | null
           test_id: string
           type?: Database["public"]["Enums"]["question_type"]
           updated_at?: string
+          youtube_title?: string | null
+          youtube_url?: string | null
+          youtube_video_id?: string | null
         }
         Update: {
           correct_bool?: boolean | null
@@ -977,6 +989,8 @@ export type Database = {
           created_at?: string
           id?: string
           image_url?: string | null
+          imported_at?: string | null
+          imported_by?: string | null
           negative_marks?: number | null
           options_en?: Json
           options_hi?: Json
@@ -986,9 +1000,13 @@ export type Database = {
           question_hi?: string | null
           solution_en?: string | null
           solution_hi?: string | null
+          source_type?: string | null
           test_id?: string
           type?: Database["public"]["Enums"]["question_type"]
           updated_at?: string
+          youtube_title?: string | null
+          youtube_url?: string | null
+          youtube_video_id?: string | null
         }
         Relationships: [
           {
