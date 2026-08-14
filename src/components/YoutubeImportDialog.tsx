@@ -297,6 +297,8 @@ export function YoutubeImportDialog({
             </Button>
           </div>
 
+          <AnalyzeProgress active={analyze.isPending || extractAudio.isPending} />
+
           {info && (
             <div className="rounded-lg border p-3 text-sm space-y-1">
               <p className="font-medium">{info.title}</p>
@@ -308,12 +310,12 @@ export function YoutubeImportDialog({
               </p>
               {info.transcript_status === "unavailable" ? (
                 <p className="text-xs text-destructive">
-                  Transcript is unavailable for this video. Please provide a transcript or upload the source material.
+                  Automatic transcription could not be completed for this video.
                 </p>
               ) : (
                 <>
                   <p className="text-xs">
-                    Questions detected: <strong>{rows.length}</strong> · {readyRows.length} ready to import ·{" "}
+                    <strong>{rows.length} questions detected.</strong> {readyRows.length} ready to import ·{" "}
                     {reviewCount} need review
                   </p>
                   {info.truncated && (
@@ -328,33 +330,59 @@ export function YoutubeImportDialog({
           )}
 
           {(showPaste || info?.transcript_status === "unavailable") && (
-            <div className="rounded-lg border border-dashed p-3 space-y-2">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <FileText className="size-4" /> Paste Transcript
+            <div className="rounded-lg border border-dashed p-3 space-y-3">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Mic className="size-4" /> Transcribe session audio
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Captions are unavailable for this video. Upload the session audio (up to 24 MB) and it will be
+                  transcribed automatically, then the same AI extraction runs on it.
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Input
+                    type="file"
+                    accept="audio/*,video/mp4"
+                    className="max-w-xs"
+                    disabled={extractAudio.isPending}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) extractAudio.mutate(f);
+                      e.target.value = "";
+                    }}
+                  />
+                  <Button size="sm" variant="outline" onClick={() => analyze.mutate()} disabled={!urlValid || analyze.isPending}>
+                    Try Again
+                  </Button>
+                  {extractAudio.isPending && <Loader2 className="size-4 animate-spin" />}
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Unable to automatically retrieve the transcript. Paste the session transcript here and the same AI
-                extraction will run on it.
-              </p>
-              <Textarea
-                rows={6}
-                placeholder="Paste the full transcript of the session..."
-                value={transcript}
-                onChange={(e) => setTranscript(e.target.value)}
-              />
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  onClick={() => extractPasted.mutate()}
-                  disabled={transcript.trim().length < 200 || extractPasted.isPending}
-                >
-                  {extractPasted.isPending ? <Loader2 className="size-4 mr-1 animate-spin" /> : null}
-                  Extract Questions
-                </Button>
-                <span className="text-xs text-muted-foreground">{transcript.trim().length} characters</span>
+
+              <div className="space-y-2 border-t pt-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <FileText className="size-4" /> Paste Transcript
+                </div>
+                <Textarea
+                  rows={6}
+                  placeholder="Paste the full transcript of the session..."
+                  value={transcript}
+                  onChange={(e) => setTranscript(e.target.value)}
+                />
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => extractPasted.mutate()}
+                    disabled={transcript.trim().length < 200 || extractPasted.isPending}
+                  >
+                    {extractPasted.isPending ? <Loader2 className="size-4 mr-1 animate-spin" /> : null}
+                    Extract Questions
+                  </Button>
+                  <span className="text-xs text-muted-foreground">{transcript.trim().length} characters</span>
+                </div>
               </div>
             </div>
           )}
+
 
           {rows.length > 0 && (
             <>
