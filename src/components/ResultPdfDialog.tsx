@@ -63,7 +63,9 @@ export function ResultPdfDialog({
         setDone(false);
       }, 1200);
     } catch (e) {
-      toast.error((e as Error)?.message || "Could not generate the PDF");
+      console.error("[result-pdf] generation failed", e);
+      toast.error("PDF generation failed. Please try again.");
+
     } finally {
       setBusy(null);
     }

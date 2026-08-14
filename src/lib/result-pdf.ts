@@ -236,7 +236,72 @@ function questionBlock(
   </div>`;
 }
 
+/* ---------------- pdf-safe css sanitizing ---------------- */
+
+/**
+ * html2canvas cannot parse modern CSS color functions (lab/lch/oklab/oklch/color()).
+ * The app's Tailwind theme resolves tokens to oklch(), and those values leak into the
+ * offscreen PDF tree through inheritance and UA/base styles. This walks the tree and
+ * pins every color-bearing property to a PDF-safe hex/rgb value.
+ */
+const UNSUPPORTED_COLOR = /\b(?:ok)?l(?:ab|ch)\(|(?<![-\w])color\(/i;
+
+const COLOR_PROPS: { prop: string; fallback: string }[] = [
+  { prop: "color", fallback: INK },
+  { prop: "background-color", fallback: "transparent" },
+  { prop: "background-image", fallback: "none" },
+  { prop: "border-top-color", fallback: LINE },
+  { prop: "border-right-color", fallback: LINE },
+  { prop: "border-bottom-color", fallback: LINE },
+  { prop: "border-left-color", fallback: LINE },
+  { prop: "outline-color", fallback: LINE },
+  { prop: "text-decoration-color", fallback: INK },
+  { prop: "column-rule-color", fallback: LINE },
+  { prop: "caret-color", fallback: INK },
+  { prop: "box-shadow", fallback: "none" },
+  { prop: "fill", fallback: INK },
+  { prop: "stroke", fallback: INK },
+];
+
+export function sanitizePdfHtml(root: HTMLElement): void {
+  const all: HTMLElement[] = [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))];
+  for (const el of all) {
+    let cs: CSSStyleDeclaration;
+    try {
+      cs = getComputedStyle(el);
+    } catch {
+      continue;
+    }
+    for (const { prop, fallback } of COLOR_PROPS) {
+      const value = cs.getPropertyValue(prop);
+      if (value && UNSUPPORTED_COLOR.test(value)) {
+        el.style.setProperty(prop, fallback, "important");
+      }
+    }
+  }
+}
+
+/** Pins <html>/<body> to PDF-safe colors during capture; returns a restore fn. */
+function lockDocumentColors(): () => void {
+  const targets: HTMLElement[] = [document.documentElement, document.body];
+  const saved = targets.map((t) => t.getAttribute("style"));
+  for (const t of targets) {
+    t.style.setProperty("background-color", "#ffffff", "important");
+    t.style.setProperty("background-image", "none", "important");
+    t.style.setProperty("color", INK, "important");
+    t.style.setProperty("border-color", LINE, "important");
+  }
+  return () => {
+    targets.forEach((t, i) => {
+      const s = saved[i];
+      if (s == null) t.removeAttribute("style");
+      else t.setAttribute("style", s);
+    });
+  };
+}
+
 /* ---------------- generation ---------------- */
+
 
 export function pdfFileName(kind: PdfKind, testTitle: string): string {
   const safe = testTitle.replace(/[^\p{L}\p{N}]+/gu, "").slice(0, 60) || "Test";
@@ -249,6 +314,7 @@ const PAGE_H = 841.89;
 const MARGIN = 32;
 const CONTENT_W = PAGE_W - MARGIN * 2;
 const FOOTER_H = 26;
+
 
 export async function generateResultPdf(opts: {
   kind: PdfKind;
@@ -292,11 +358,17 @@ export async function generateResultPdf(opts: {
   await (document as Document & { fonts?: FontFaceSet }).fonts?.ready?.catch?.(() => {});
   await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 50)));
 
+  // strip any lab()/lch()/oklab()/oklch()/color() that leaked in from app CSS
+  sanitizePdfHtml(root);
+  // html2canvas also reads <html>/<body> colors; pin them to PDF-safe values while capturing
+  const restoreRootColors = lockDocumentColors();
+
   const pdf = new jsPDF({ unit: "pt", format: "a4", compress: true });
   let y = MARGIN;
   const bottom = PAGE_H - MARGIN - FOOTER_H;
 
   try {
+
     for (let i = 0; i < blocks.length; i++) {
       const canvas = await html2canvas(blocks[i]!, {
         scale: 2,
@@ -351,6 +423,8 @@ export async function generateResultPdf(opts: {
 
     pdf.save(pdfFileName(kind, meta.testTitle));
   } finally {
+    restoreRootColors();
     root.remove();
+
   }
 }
