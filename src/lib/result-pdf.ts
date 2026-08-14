@@ -403,6 +403,8 @@ export async function generateResultPdf(opts: {
 
     pdf.save(pdfFileName(kind, meta.testTitle));
   } finally {
+    restoreRootColors();
     root.remove();
+
   }
 }
