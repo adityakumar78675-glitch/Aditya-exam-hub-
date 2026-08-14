@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Trash2, Pencil, Upload, FileText, Search, Loader2 } from "lucide-react";
+import { Trash2, Pencil, Upload, FileText, Search, Loader2, ImageIcon, RefreshCw, Download } from "lucide-react";
+import { detectCover, uploadCoverBlob } from "@/lib/note-cover";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const ALLOWED = [
