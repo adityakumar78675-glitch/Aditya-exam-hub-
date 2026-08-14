@@ -168,7 +168,8 @@ export function YoutubeImportDialog({
       );
       if (res.transcript_status === "unavailable") {
         setShowPaste(true);
-        toast.error("Unable to automatically retrieve the transcript. You can paste it manually below.");
+        toast.error("Automatic transcription could not be completed for this video.");
+
       } else if (!res.questions.length) {
         toast.warning("No objective questions were found in this session's transcript.");
       } else {
