@@ -340,13 +340,15 @@ export async function generateResultPdf(opts: {
 
   // strip any lab()/lch()/oklab()/oklch()/color() that leaked in from app CSS
   sanitizePdfHtml(root);
-
+  // html2canvas also reads <html>/<body> colors; pin them to PDF-safe values while capturing
+  const restoreRootColors = lockDocumentColors();
 
   const pdf = new jsPDF({ unit: "pt", format: "a4", compress: true });
   let y = MARGIN;
   const bottom = PAGE_H - MARGIN - FOOTER_H;
 
   try {
+
     for (let i = 0; i < blocks.length; i++) {
       const canvas = await html2canvas(blocks[i]!, {
         scale: 2,
