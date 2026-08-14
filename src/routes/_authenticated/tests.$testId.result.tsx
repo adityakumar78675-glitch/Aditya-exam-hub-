@@ -193,6 +193,32 @@ function ResultPage() {
               View Solutions
             </Button>
           )}
+          {solutions && solutions.length > 0 && (
+            <ResultPdfDialog
+              lang={lang}
+              meta={{
+                testTitle: test.title,
+                subject: test.subject ?? null,
+                studentName,
+                date: attempt.submitted_at
+                  ? new Date(attempt.submitted_at).toLocaleDateString()
+                  : new Date().toLocaleDateString(),
+                score: attempt.score,
+                totalMarks: attempt.total_marks,
+                accuracy,
+                totalQuestions,
+                attempted,
+                correct: attempt.correct,
+                incorrect: attempt.incorrect,
+                unattempted: attempt.unattempted,
+                attemptNumber: attempt.attempt_number,
+              }}
+              items={solutions.map((s, i) => ({
+                sol: s as unknown as PdfSolution,
+                status: statuses[i]!,
+              }))}
+            />
+          )}
           {canStartNew && (
             <Button variant="secondary" onClick={onRetake} disabled={busy}>
               {busy ? "Starting..." : "Attempt Again"}
