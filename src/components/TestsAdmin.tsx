@@ -390,6 +390,9 @@ function QuestionsManager({ test, onBack }: { test: TestRow; onBack: () => void 
           <Button size="sm" onClick={() => setBulkOpen(true)}>
             <Zap className="size-4 mr-1" /> Bulk Add Questions
           </Button>
+          <Button size="sm" variant="outline" onClick={() => setYtOpen(true)}>
+            <Youtube className="size-4 mr-1" /> YouTube Session Import
+          </Button>
           <Button size="sm" variant="outline" onClick={() => setEditing(emptyQuestion(test.id, (questions?.length ?? 0) + 1))}>
             <Plus className="size-4 mr-1" /> Add Question
           </Button>
@@ -405,6 +408,17 @@ function QuestionsManager({ test, onBack }: { test: TestRow; onBack: () => void 
         defaultNegative={test.negative_marks}
         onImported={() => qc.invalidateQueries({ queryKey: ["admin-test-questions", test.id] })}
       />
+
+      <YoutubeImportDialog
+        open={ytOpen}
+        onOpenChange={setYtOpen}
+        testId={test.id}
+        testTitle={test.title}
+        defaultPositive={test.positive_marks}
+        defaultNegative={test.negative_marks}
+        onImported={() => qc.invalidateQueries({ queryKey: ["admin-test-questions", test.id] })}
+      />
+
 
 
       {isLoading ? (
