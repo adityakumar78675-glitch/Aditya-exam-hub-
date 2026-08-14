@@ -118,50 +118,155 @@ function parseTimedTextXml(xml: string) {
     .trim();
 }
 
-/**
- * Uses the public timedtext caption API (no watch-page scraping) to list and
- * download publicly published captions.
- */
-export async function fetchTranscript(videoId: string): Promise<{ text: string; language: string | null }> {
-  const listRes = await fetchWithBackoff(
-    `https://video.google.com/timedtext?type=list&v=${encodeURIComponent(videoId)}`,
-  );
-  if (!listRes.ok) throw new ImportError("transcript_unavailable", "Captions could not be listed for this video.");
-  const tracks = parseTrackList(await listRes.text());
-  if (!tracks.length) return { text: "", language: null };
+type CaptionTrack = { baseUrl: string; lang: string; kind: string };
 
-  const preferred =
+export type VideoInfo = {
+  title: string;
+  channel: string;
+  duration_seconds: number | null;
+  tracks: CaptionTrack[];
+};
+
+/**
+ * YouTube's public InnerTube player endpoint (the same API the embedded player
+ * uses). Returns metadata plus the list of published caption tracks.
+ */
+export async function fetchVideoInfo(videoId: string): Promise<VideoInfo> {
+  const empty: VideoInfo = { title: "", channel: "", duration_seconds: null, tracks: [] };
+  let res: Response;
+  try {
+    res = await fetchWithBackoff("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        videoId,
+        context: {
+          client: { clientName: "WEB", clientVersion: "2.20240726.00.00", hl: "en", gl: "IN" },
+        },
+      }),
+    });
+  } catch {
+    return empty;
+  }
+  if (!res.ok) return empty;
+  let j: {
+    playabilityStatus?: { status?: string };
+    videoDetails?: { title?: string; author?: string; lengthSeconds?: string };
+    captions?: {
+      playerCaptionsTracklistRenderer?: {
+        captionTracks?: { baseUrl?: string; languageCode?: string; kind?: string }[];
+      };
+    };
+  };
+  try {
+    j = (await res.json()) as typeof j;
+  } catch {
+    return empty;
+  }
+  const status = j.playabilityStatus?.status;
+  if (status && status !== "OK" && !j.videoDetails) {
+    throw new ImportError("video_unavailable", "This video is unavailable, private or age-restricted.");
+  }
+  const len = Number(j.videoDetails?.lengthSeconds ?? "");
+  return {
+    title: j.videoDetails?.title ?? "",
+    channel: j.videoDetails?.author ?? "",
+    duration_seconds: Number.isFinite(len) && len > 0 ? len : null,
+    tracks: (j.captions?.playerCaptionsTracklistRenderer?.captionTracks ?? [])
+      .filter((t) => !!t.baseUrl)
+      .map((t) => ({ baseUrl: t.baseUrl!, lang: t.languageCode ?? "", kind: t.kind ?? "" })),
+  };
+}
+
+function pickTrack<T extends { lang: string; kind: string }>(tracks: T[]): T | null {
+  if (!tracks.length) return null;
+  return (
     tracks.find((t) => t.lang.startsWith("hi") && t.kind !== "asr") ??
     tracks.find((t) => t.lang.startsWith("en") && t.kind !== "asr") ??
     tracks.find((t) => t.kind !== "asr") ??
-    tracks[0]!;
+    tracks.find((t) => t.lang.startsWith("hi")) ??
+    tracks.find((t) => t.lang.startsWith("en")) ??
+    tracks[0]!
+  );
+}
 
-  const base = `https://video.google.com/timedtext?v=${encodeURIComponent(videoId)}&lang=${encodeURIComponent(
-    preferred.lang,
-  )}${preferred.name ? `&name=${encodeURIComponent(preferred.name)}` : ""}${
-    preferred.kind ? `&kind=${encodeURIComponent(preferred.kind)}` : ""
-  }`;
-
-  const jsonRes = await fetchWithBackoff(`${base}&fmt=json3`);
+async function downloadCaption(url: string): Promise<string> {
+  const jsonRes = await fetchWithBackoff(`${url}&fmt=json3`);
   if (jsonRes.ok) {
     const body = await jsonRes.text();
     if (body.trim().startsWith("{")) {
       try {
         const text = parseJson3(JSON.parse(body) as { events?: { segs?: { utf8?: string }[] }[] });
-        if (text) return { text, language: preferred.lang };
+        if (text) return text;
       } catch {
-        /* fall through to xml */
+        /* fall through */
       }
     } else if (body.includes("<text")) {
       const text = parseTimedTextXml(body);
-      if (text) return { text, language: preferred.lang };
+      if (text) return text;
     }
   }
-
-  const xmlRes = await fetchWithBackoff(base);
-  if (!xmlRes.ok) return { text: "", language: preferred.lang };
-  return { text: parseTimedTextXml(await xmlRes.text()), language: preferred.lang };
+  const xmlRes = await fetchWithBackoff(url);
+  if (!xmlRes.ok) return "";
+  return parseTimedTextXml(await xmlRes.text());
 }
+
+/**
+ * Automatic transcript retrieval. Tries the InnerTube caption tracks first
+ * (works for auto-generated captions too), then the legacy public timedtext
+ * listing. No watch-page scraping and no video download.
+ */
+export async function fetchTranscript(
+  videoId: string,
+  info?: VideoInfo,
+): Promise<{ text: string; language: string | null }> {
+  const vi = info ?? (await fetchVideoInfo(videoId));
+  const track = pickTrack(vi.tracks);
+  if (track) {
+    const text = await downloadCaption(track.baseUrl);
+    if (text) return { text, language: track.lang || null };
+  }
+
+  const listRes = await fetchWithBackoff(
+    `https://video.google.com/timedtext?type=list&v=${encodeURIComponent(videoId)}`,
+  );
+  if (!listRes.ok) return { text: "", language: null };
+  const legacy = pickTrack(parseTrackList(await listRes.text()));
+  if (!legacy) return { text: "", language: null };
+
+  const base = `https://video.google.com/timedtext?v=${encodeURIComponent(videoId)}&lang=${encodeURIComponent(
+    legacy.lang,
+  )}${legacy.name ? `&name=${encodeURIComponent(legacy.name)}` : ""}${
+    legacy.kind ? `&kind=${encodeURIComponent(legacy.kind)}` : ""
+  }`;
+  return { text: await downloadCaption(base), language: legacy.lang || null };
+}
+
+/** Speech-to-text fallback for admin-supplied audio of the session. */
+export async function transcribeAudio(apiKey: string, file: File): Promise<string> {
+  const form = new FormData();
+  form.append("model", "openai/gpt-4o-mini-transcribe");
+  const type = (file.type || "").split(";")[0] ?? "";
+  const ext =
+    ({ "audio/webm": "webm", "audio/mp4": "mp4", "video/mp4": "mp4", "audio/mpeg": "mp3", "audio/wav": "wav", "audio/x-m4a": "m4a", "audio/m4a": "m4a" } as Record<string, string>)[type] ??
+    (file.name.split(".").pop() || "mp3");
+  form.append("file", file, `session.${ext}`);
+
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/audio/transcriptions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: form,
+  });
+  if (res.status === 429) throw new ImportError("rate_limited", "Transcription rate limit reached. Please try again shortly.");
+  if (res.status === 402) throw new ImportError("ai_failure", "AI credits exhausted. Please add credits to continue.");
+  if (!res.ok) {
+    throw new ImportError("transcript_unavailable", "Automatic transcription could not be completed for this audio.");
+  }
+  const j = (await res.json()) as { text?: string };
+  return (j.text ?? "").trim();
+}
+
+
 
 export function firstJsonObject(text: string): string | null {
   const start = text.indexOf("{");

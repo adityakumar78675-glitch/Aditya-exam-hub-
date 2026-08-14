@@ -8,6 +8,8 @@ import {
   extractQuestions,
   fetchOembed,
   fetchTranscript,
+  fetchVideoInfo,
+  transcribeAudio,
 } from "@/lib/youtube-import.server";
 
 function toClientError(e: unknown): Error {
@@ -29,17 +31,28 @@ export const adminAnalyzeYoutubeSession = createServerFn({ method: "POST" })
       const apiKey = process.env["LOVABLE_API_KEY"];
       if (!apiKey) throw new ImportError("provider_failure", "AI is not configured.");
 
-      const meta = await fetchOembed(videoId);
+      const info = await fetchVideoInfo(videoId);
+      let title = info.title;
+      let channel = info.channel;
+      if (!title) {
+        try {
+          const meta = await fetchOembed(videoId);
+          title = meta.title || "YouTube video";
+          channel = meta.channel;
+        } catch {
+          title = "YouTube video";
+        }
+      }
       const base = {
         video_id: videoId,
         url: `https://www.youtube.com/watch?v=${videoId}`,
-        title: meta.title || "YouTube video",
-        channel: meta.channel,
-        duration_seconds: null as number | null,
+        title,
+        channel,
+        duration_seconds: info.duration_seconds,
         transcript_language: null as string | null,
       };
 
-      const { text: transcript, language } = await fetchTranscript(videoId);
+      const { text: transcript, language } = await fetchTranscript(videoId, info);
       if (!transcript || transcript.length < 200) {
         return {
           ...base,
@@ -64,6 +77,69 @@ export const adminAnalyzeYoutubeSession = createServerFn({ method: "POST" })
       throw toClientError(e);
     }
   });
+
+/** Speech-to-text fallback: admin supplies the session audio when captions are missing. */
+export const adminExtractFromAudio = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => {
+    if (!(d instanceof FormData)) throw new Error("Invalid upload");
+    return d;
+  })
+  .handler(async ({ data, context }): Promise<AnalyzeResult> => {
+    try {
+      await assertAdmin(context.supabase as never, context.userId);
+      const apiKey = process.env["LOVABLE_API_KEY"];
+      if (!apiKey) throw new ImportError("provider_failure", "AI is not configured.");
+
+      const file = data.get("file");
+      if (!(file instanceof File) || file.size < 2048) {
+        throw new ImportError("empty_transcript", "Please choose a valid audio file of the session.");
+      }
+      if (file.size > 24 * 1024 * 1024) {
+        throw new ImportError("empty_transcript", "Audio must be under 24 MB. Please upload a shorter clip.");
+      }
+      const translate = (String(data.get("translate") ?? "none") as "none" | "hi" | "en") ?? "none";
+      const urlRaw = String(data.get("url") ?? "");
+      const videoId = urlRaw ? extractYoutubeId(urlRaw) : null;
+
+      const transcript = await transcribeAudio(apiKey, file);
+      if (transcript.length < 200) {
+        throw new ImportError(
+          "transcript_unavailable",
+          "Automatic transcription could not be completed for this audio.",
+        );
+      }
+
+      let title = "Transcribed session";
+      let channel = "";
+      if (videoId) {
+        try {
+          const info = await fetchVideoInfo(videoId);
+          title = info.title || title;
+          channel = info.channel;
+        } catch {
+          /* metadata is optional */
+        }
+      }
+
+      const { truncated, questions } = await extractQuestions(apiKey, transcript, translate);
+      return {
+        video_id: videoId ?? "",
+        url: videoId ? `https://www.youtube.com/watch?v=${videoId}` : "",
+        title,
+        channel,
+        duration_seconds: null,
+        transcript_language: null,
+        transcript_status: "available" as const,
+        transcript_chars: transcript.length,
+        truncated,
+        questions,
+      };
+    } catch (e) {
+      throw toClientError(e);
+    }
+  });
+
 
 /** Fallback path: admin pastes the transcript manually. */
 export const adminExtractFromTranscript = createServerFn({ method: "POST" })
