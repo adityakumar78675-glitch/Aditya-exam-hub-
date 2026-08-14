@@ -127,6 +127,8 @@ export function YoutubeImportDialog({
   const importFn = useServerFn(adminImportYoutubeQuestions);
   const keysFn = useServerFn(adminGetTestQuestionKeys);
   const transcriptFn = useServerFn(adminExtractFromTranscript);
+  const audioFn = useServerFn(adminExtractFromAudio);
+
 
   const { data: tests } = useQuery({
     queryKey: ["admin-tests-min"],
