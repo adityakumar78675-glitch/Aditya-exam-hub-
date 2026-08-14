@@ -10,6 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RichMarkdown } from "@/components/RichMarkdown";
+import { ResultPdfDialog } from "@/components/ResultPdfDialog";
+import type { PdfSolution } from "@/lib/result-pdf";
+import { useAuth } from "@/lib/auth";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   CheckCircle2,
