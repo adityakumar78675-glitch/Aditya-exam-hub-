@@ -39,14 +39,6 @@ export type PdfMeta = {
 
 export type PdfKind = "wrong" | "correct" | "all";
 
-export function statusOf(s: PdfSolution): "correct" | "incorrect" | "unattempted" {
-  const empty = s.your_answer === null || s.your_answer === "";
-  if (empty) return "unattempted";
-  return s.your_answer === false || s.your_answer === true
-    ? "unattempted"
-    : "unattempted";
-}
-
 /** Status derived the same way the result page derives it (verdict-driven). */
 export function statusFromVerdict(verdict: boolean | null, your: PdfSolution["your_answer"]) {
   const empty = your === null || your === "";
