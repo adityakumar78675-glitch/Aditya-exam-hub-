@@ -338,6 +338,10 @@ export async function generateResultPdf(opts: {
   await (document as Document & { fonts?: FontFaceSet }).fonts?.ready?.catch?.(() => {});
   await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 50)));
 
+  // strip any lab()/lch()/oklab()/oklch()/color() that leaked in from app CSS
+  sanitizePdfHtml(root);
+
+
   const pdf = new jsPDF({ unit: "pt", format: "a4", compress: true });
   let y = MARGIN;
   const bottom = PAGE_H - MARGIN - FOOTER_H;
