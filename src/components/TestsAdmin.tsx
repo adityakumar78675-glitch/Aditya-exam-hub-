@@ -12,8 +12,10 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Pencil, Trash2, Plus, ListChecks, ArrowLeft, Zap } from "lucide-react";
+import { Pencil, Trash2, Plus, ListChecks, ArrowLeft, Zap, Youtube } from "lucide-react";
 import { BulkQuestionsDialog } from "@/components/BulkQuestionsDialog";
+import { YoutubeImportDialog } from "@/components/YoutubeImportDialog";
+
 
 
 type TestRow = {
