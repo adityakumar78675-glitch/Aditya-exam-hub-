@@ -356,6 +356,8 @@ function QuestionsManager({ test, onBack }: { test: TestRow; onBack: () => void 
   const delFn = useServerFn(adminDeleteQuestion);
   const [editing, setEditing] = useState<QState | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [ytOpen, setYtOpen] = useState(false);
+
 
 
   const { data: questions, isLoading } = useQuery({
