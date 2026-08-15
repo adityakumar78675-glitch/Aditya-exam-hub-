@@ -46,6 +46,32 @@ function toUIMessage(m: DBMessage): UIMessage {
   };
 }
 
+/** Where the student is inside the app, so Master Ji can resolve "iska", "yahan wala" etc. */
+function describePage(): string {
+  if (typeof window === "undefined") return "";
+  const path = window.location.pathname;
+  const title = document.title?.replace(/\s*[|–-]\s*Aditya Exam Hub.*/i, "").trim();
+  return [title, path].filter(Boolean).join(" — ").slice(0, 300);
+}
+
+/** Compact chips shown above the composer during a conversation. */
+const CHIP_ACTIONS: { label: string; prompt: string }[] = [
+  { label: "Explain", prompt: "Isko simple language mein step-by-step samjhao." },
+  { label: "Notes", prompt: "Isi topic ke short revision notes bana do." },
+  { label: "MCQ", prompt: "Isi topic se 10 MCQ banao — options, correct answer aur explanation ke saath." },
+  { label: "Quiz", prompt: "Quiz me — ek-ek karke question pucho aur score rakho." },
+  { label: "Summarize", prompt: "Isko summarize karo — key concepts, formulas, common mistakes aur exam points." },
+];
+
+/** Extra actions offered when a PDF is attached. */
+const PDF_ACTIONS: { label: string; prompt: string }[] = [
+  { label: "📖 Explain PDF", prompt: "Is PDF ko padhkar detail mein explain karo." },
+  { label: "📝 Make Notes", prompt: "Is PDF ke short notes bana do — definitions, formulas, important points." },
+  { label: "❓ Make MCQs", prompt: "Is PDF se 20 MCQ banao — 4 options, correct answer aur explanation ke saath." },
+  { label: "📊 Convert to CSV", prompt: "Is PDF ke questions ko CSV mein convert karo (Question, Option A, Option B, Option C, Option D, Answer, Explanation)." },
+  { label: "📚 Summarize", prompt: "Is PDF ko summarize karo." },
+];
+
 const QUICK_ACTIONS: { label: string; prompt: string; emoji: string }[] = [
   { label: "Short Notes", emoji: "📝", prompt: "Generate short revision notes on: " },
   { label: "Detailed Notes", emoji: "📚", prompt: "Generate detailed study notes on: " },
@@ -71,6 +97,7 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
   const [rate, setRate] = useState(1);
   const [listening, setListening] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
   const sttRef = useRef<SttHandle | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -91,7 +118,12 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
           return fetch(url, { ...init, headers });
         },
         prepareSendMessagesRequest: ({ messages, id }) => ({
-          body: { messages, conversationId: conversationIdRef.current, id },
+          body: {
+            messages,
+            conversationId: conversationIdRef.current,
+            id,
+            pageContext: describePage(),
+          },
         }),
       }),
     [],
@@ -101,8 +133,12 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
     id: activeId ?? "new",
     messages: initialMessages,
     transport,
-    onError: (e) => toast.error(e.message || "Master Ji is unavailable"),
+    onError: (e) => {
+      setLastError(e.message || "Master Ji response generate nahi kar paaya. Try Again.");
+      toast.error("Master Ji response generate nahi kar paaya. Try Again.");
+    },
     onFinish: ({ message }) => {
+      setLastError(null);
       loadConversations();
       // Two-way voice conversation: speak the reply when the question came by voice
       if (voiceMode && ttsAvailable()) {
