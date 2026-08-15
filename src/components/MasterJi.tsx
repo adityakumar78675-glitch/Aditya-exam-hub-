@@ -623,7 +623,23 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
                 </div>
               </div>
             )}
+            {lastError && !isStreaming && (
+              <div className="flex items-center gap-3 rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm">
+                <span className="flex-1">Master Ji response generate nahi kar paaya.</span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setLastError(null);
+                    regenerate();
+                  }}
+                >
+                  <RotateCcw className="size-3.5 mr-1" /> Try Again
+                </Button>
+              </div>
+            )}
             <div ref={bottomRef} />
+
           </div>
         </div>
 
