@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import mermaid from "mermaid";
+import { CsvPreview } from "@/components/CsvPreview";
 
 let mermaidInited = false;
 function initMermaid() {
@@ -98,6 +99,9 @@ export const RichMarkdown = memo(function RichMarkdown({ children }: { children:
             const lang = (className ?? "").replace("language-", "").trim();
             if (isBlock && lang === "mermaid") {
               return <MermaidBlock code={text} />;
+            }
+            if (isBlock && (lang === "csv" || lang === "excel")) {
+              return <CsvPreview code={text} />;
             }
             if (isBlock && (lang === "svg" || lang === "html")) {
               return <MarkupBlock code={text} />;

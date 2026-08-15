@@ -46,6 +46,32 @@ function toUIMessage(m: DBMessage): UIMessage {
   };
 }
 
+/** Where the student is inside the app, so Master Ji can resolve "iska", "yahan wala" etc. */
+function describePage(): string {
+  if (typeof window === "undefined") return "";
+  const path = window.location.pathname;
+  const title = document.title?.replace(/\s*[|–-]\s*Aditya Exam Hub.*/i, "").trim();
+  return [title, path].filter(Boolean).join(" — ").slice(0, 300);
+}
+
+/** Compact chips shown above the composer during a conversation. */
+const CHIP_ACTIONS: { label: string; prompt: string }[] = [
+  { label: "Explain", prompt: "Isko simple language mein step-by-step samjhao." },
+  { label: "Notes", prompt: "Isi topic ke short revision notes bana do." },
+  { label: "MCQ", prompt: "Isi topic se 10 MCQ banao — options, correct answer aur explanation ke saath." },
+  { label: "Quiz", prompt: "Quiz me — ek-ek karke question pucho aur score rakho." },
+  { label: "Summarize", prompt: "Isko summarize karo — key concepts, formulas, common mistakes aur exam points." },
+];
+
+/** Extra actions offered when a PDF is attached. */
+const PDF_ACTIONS: { label: string; prompt: string }[] = [
+  { label: "📖 Explain PDF", prompt: "Is PDF ko padhkar detail mein explain karo." },
+  { label: "📝 Make Notes", prompt: "Is PDF ke short notes bana do — definitions, formulas, important points." },
+  { label: "❓ Make MCQs", prompt: "Is PDF se 20 MCQ banao — 4 options, correct answer aur explanation ke saath." },
+  { label: "📊 Convert to CSV", prompt: "Is PDF ke questions ko CSV mein convert karo (Question, Option A, Option B, Option C, Option D, Answer, Explanation)." },
+  { label: "📚 Summarize", prompt: "Is PDF ko summarize karo." },
+];
+
 const QUICK_ACTIONS: { label: string; prompt: string; emoji: string }[] = [
   { label: "Short Notes", emoji: "📝", prompt: "Generate short revision notes on: " },
   { label: "Detailed Notes", emoji: "📚", prompt: "Generate detailed study notes on: " },
@@ -71,6 +97,7 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
   const [rate, setRate] = useState(1);
   const [listening, setListening] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
   const sttRef = useRef<SttHandle | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -91,7 +118,12 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
           return fetch(url, { ...init, headers });
         },
         prepareSendMessagesRequest: ({ messages, id }) => ({
-          body: { messages, conversationId: conversationIdRef.current, id },
+          body: {
+            messages,
+            conversationId: conversationIdRef.current,
+            id,
+            pageContext: describePage(),
+          },
         }),
       }),
     [],
@@ -101,8 +133,12 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
     id: activeId ?? "new",
     messages: initialMessages,
     transport,
-    onError: (e) => toast.error(e.message || "Master Ji is unavailable"),
+    onError: (e) => {
+      setLastError(e.message || "Master Ji response generate nahi kar paaya. Try Again.");
+      toast.error("Master Ji response generate nahi kar paaya. Try Again.");
+    },
     onFinish: ({ message }) => {
+      setLastError(null);
       loadConversations();
       // Two-way voice conversation: speak the reply when the question came by voice
       if (voiceMode && ttsAvailable()) {
@@ -259,6 +295,18 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
       text: text || fallback,
       files: fileParts.length ? fileParts : undefined,
     });
+  }
+
+  const hasPdf = attachments.some((a) => a.mediaType === "application/pdf");
+
+  /** Runs a one-tap action with whatever is currently attached. */
+  function runPrompt(prompt: string) {
+    if (isStreaming) return;
+    setLastError(null);
+    setVoiceMode(false);
+    const files = attachments;
+    setAttachments([]);
+    void send(prompt, files);
   }
 
   function toggleMic() {
@@ -587,7 +635,23 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
                 </div>
               </div>
             )}
+            {lastError && !isStreaming && (
+              <div className="flex items-center gap-3 rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm">
+                <span className="flex-1">Master Ji response generate nahi kar paaya.</span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setLastError(null);
+                    regenerate();
+                  }}
+                >
+                  <RotateCcw className="size-3.5 mr-1" /> Try Again
+                </Button>
+              </div>
+            )}
             <div ref={bottomRef} />
+
           </div>
         </div>
 
@@ -613,6 +677,35 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
 
         <form onSubmit={onSubmit} className="border-t border-border p-3 bg-card/60">
           <div className="max-w-3xl mx-auto space-y-2">
+            {hasPdf && (
+              <div className="flex flex-wrap gap-1.5">
+                {PDF_ACTIONS.map((a) => (
+                  <button
+                    key={a.label}
+                    type="button"
+                    disabled={isStreaming}
+                    onClick={() => runPrompt(a.prompt)}
+                    className="text-xs rounded-full border border-border px-3 py-1.5 hover:bg-muted transition disabled:opacity-50"
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {!hasPdf && messages.length > 0 && !isStreaming && (
+              <div className="flex flex-wrap gap-1.5">
+                {CHIP_ACTIONS.map((a) => (
+                  <button
+                    key={a.label}
+                    type="button"
+                    onClick={() => runPrompt(a.prompt)}
+                    className="text-xs rounded-full border border-border px-3 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition"
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            )}
             {attachments.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {attachments.map((a, i) => (
