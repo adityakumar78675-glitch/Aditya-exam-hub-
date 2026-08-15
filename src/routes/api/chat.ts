@@ -120,9 +120,12 @@ export const Route = createFileRoute("/api/chat")({
           const body = (await request.json()) as {
             messages: UIMessage[];
             conversationId?: string | null;
+            pageContext?: string | null;
           };
           const { messages } = body;
+          const pageContext = (body.pageContext ?? "").slice(0, 300) || null;
           let conversationId = body.conversationId ?? null;
+
 
           if (!Array.isArray(messages) || messages.length === 0) {
             return new Response("Messages required", { status: 400 });
