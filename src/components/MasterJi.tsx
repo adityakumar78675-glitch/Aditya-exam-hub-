@@ -297,6 +297,18 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
     });
   }
 
+  const hasPdf = attachments.some((a) => a.mediaType === "application/pdf");
+
+  /** Runs a one-tap action with whatever is currently attached. */
+  function runPrompt(prompt: string) {
+    if (isStreaming) return;
+    setLastError(null);
+    setVoiceMode(false);
+    const files = attachments;
+    setAttachments([]);
+    void send(prompt, files);
+  }
+
   function toggleMic() {
     if (listening) {
       sttRef.current?.stop();
@@ -665,6 +677,35 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
 
         <form onSubmit={onSubmit} className="border-t border-border p-3 bg-card/60">
           <div className="max-w-3xl mx-auto space-y-2">
+            {hasPdf && (
+              <div className="flex flex-wrap gap-1.5">
+                {PDF_ACTIONS.map((a) => (
+                  <button
+                    key={a.label}
+                    type="button"
+                    disabled={isStreaming}
+                    onClick={() => runPrompt(a.prompt)}
+                    className="text-xs rounded-full border border-border px-3 py-1.5 hover:bg-muted transition disabled:opacity-50"
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {!hasPdf && messages.length > 0 && !isStreaming && (
+              <div className="flex flex-wrap gap-1.5">
+                {CHIP_ACTIONS.map((a) => (
+                  <button
+                    key={a.label}
+                    type="button"
+                    onClick={() => runPrompt(a.prompt)}
+                    className="text-xs rounded-full border border-border px-3 py-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition"
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            )}
             {attachments.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {attachments.map((a, i) => (
