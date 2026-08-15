@@ -22,8 +22,9 @@ import { toast } from "sonner";
 import { AlertTriangle, ArrowDown, ArrowUp, CheckCircle2, FileText, Loader2, Mic, Trash2, Youtube } from "lucide-react";
 
 const PROGRESS_STEPS = [
-  "Video identified",
-  "Obtaining transcript",
+  "Video ID detected",
+  "Requesting transcript",
+  "Transcript received",
   "Cleaning transcript",
   "Detecting questions",
   "Extracting options",
@@ -31,6 +32,7 @@ const PROGRESS_STEPS = [
   "Generating explanations",
   "Preparing questions",
 ];
+
 
 function AnalyzeProgress({ active }: { active: boolean }) {
   const [step, setStep] = useState(0);

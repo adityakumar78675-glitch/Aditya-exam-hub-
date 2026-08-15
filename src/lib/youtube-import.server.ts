@@ -337,7 +337,7 @@ export async function fetchTranscript(
   )}${legacy.name ? `&name=${encodeURIComponent(legacy.name)}` : ""}${
     legacy.kind ? `&kind=${encodeURIComponent(legacy.kind)}` : ""
   }`;
-  return { text: await downloadCaption(base), language: legacy.lang || null };
+  return { text: cleanTranscript(await downloadCaption(base)), language: legacy.lang || null };
 }
 
 /** Speech-to-text fallback for admin-supplied audio of the session. */
