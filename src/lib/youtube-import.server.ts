@@ -212,20 +212,118 @@ async function downloadCaption(url: string): Promise<string> {
 }
 
 /**
- * Automatic transcript retrieval. Tries the InnerTube caption tracks first
- * (works for auto-generated captions too), then the legacy public timedtext
- * listing. No watch-page scraping and no video download.
+ * Removes caption artifacts: timestamps, speaker/sound tags, repeated lines and
+ * runaway whitespace. Question text, numbers, formulas and Hindi/English words
+ * are preserved verbatim, and sentence boundaries are kept intact.
+ */
+export function cleanTranscript(raw: string): string {
+  const stripped = raw
+    .replace(/\r/g, "\n")
+    .replace(/^\s*\d+\s*$/gm, "")
+    .replace(/\d{1,2}:\d{2}(:\d{2})?([.,]\d{1,3})?\s*-->\s*\d{1,2}:\d{2}(:\d{2})?([.,]\d{1,3})?.*$/gm, "")
+    .replace(/^\s*\[?\(?\d{1,2}:\d{2}(:\d{2})?\)?\]?\s*/gm, "")
+    .replace(/\[(music|applause|laughter|inaudible|संगीत)[^\]]*\]/gi, "")
+    .replace(/&nbsp;/g, " ");
+
+  const lines = stripped
+    .split("\n")
+    .map((l) => l.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+
+  const out: string[] = [];
+  for (const line of lines) {
+    const prev = out[out.length - 1];
+    if (prev && prev.toLowerCase() === line.toLowerCase()) continue;
+    if (prev && prev.toLowerCase().endsWith(line.toLowerCase())) continue;
+    out.push(line);
+  }
+  return out.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+type TranscriptApiItem = {
+  id?: string;
+  title?: string;
+  tracks?: { language?: string; transcript?: { text?: string }[] }[];
+};
+
+/**
+ * Primary transcript source: youtube-transcript.io. The API token stays
+ * server-side (YOUTUBE_TRANSCRIPT_API_TOKEN) and is never sent to the browser.
+ */
+export async function fetchTranscriptFromApi(
+  videoId: string,
+): Promise<{ text: string; language: string | null; title: string } | null> {
+  const token = process.env["YOUTUBE_TRANSCRIPT_API_TOKEN"];
+  if (!token) return null;
+
+  const delays = [800, 2500];
+  let res: Response | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      res = await fetch("https://www.youtube-transcript.io/api/transcripts", {
+        method: "POST",
+        headers: { Authorization: `Basic ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [videoId] }),
+      });
+    } catch {
+      if (attempt === 2) throw new ImportError("provider_failure", "Network error while contacting the transcript service.");
+      await sleep(delays[attempt]!);
+      continue;
+    }
+    if (res.status === 429 || res.status === 503) {
+      if (attempt === 2) {
+        throw new ImportError(
+          "rate_limited",
+          "YouTube transcript service is temporarily rate-limited. Please try again later.",
+        );
+      }
+      await sleep(delays[attempt]!);
+      continue;
+    }
+    break;
+  }
+  if (!res) return null;
+  if (res.status === 401 || res.status === 403) {
+    throw new ImportError("provider_failure", "Transcript service authentication failed. Please check the API token.");
+  }
+  if (res.status === 404) return null;
+  if (!res.ok) return null;
+
+  let body: unknown;
+  try {
+    body = await res.json();
+  } catch {
+    return null;
+  }
+  const items: TranscriptApiItem[] = Array.isArray(body)
+    ? (body as TranscriptApiItem[])
+    : ((body as { transcripts?: TranscriptApiItem[] })?.transcripts ?? []);
+  const item = items.find((i) => !i.id || i.id === videoId) ?? items[0];
+  const track = item?.tracks?.find((t) => (t.transcript?.length ?? 0) > 0) ?? item?.tracks?.[0];
+  const text = cleanTranscript((track?.transcript ?? []).map((s) => (s.text ?? "").trim()).join("\n"));
+  if (!text) return null;
+  return { text, language: track?.language ?? null, title: item?.title ?? "" };
+}
+
+/**
+ * Automatic transcript retrieval. Uses the youtube-transcript.io API first,
+ * then falls back to YouTube's public caption endpoints. No watch-page
+ * scraping and no video download.
  */
 export async function fetchTranscript(
   videoId: string,
   info?: VideoInfo,
 ): Promise<{ text: string; language: string | null }> {
+  const api = await fetchTranscriptFromApi(videoId);
+  if (api && api.text.length >= 200) return { text: api.text, language: api.language };
+
   const vi = info ?? (await fetchVideoInfo(videoId));
   const track = pickTrack(vi.tracks);
   if (track) {
-    const text = await downloadCaption(track.baseUrl);
+    const text = cleanTranscript(await downloadCaption(track.baseUrl));
     if (text) return { text, language: track.lang || null };
   }
+
 
   const listRes = await fetchWithBackoff(
     `https://video.google.com/timedtext?type=list&v=${encodeURIComponent(videoId)}`,
@@ -239,7 +337,7 @@ export async function fetchTranscript(
   )}${legacy.name ? `&name=${encodeURIComponent(legacy.name)}` : ""}${
     legacy.kind ? `&kind=${encodeURIComponent(legacy.kind)}` : ""
   }`;
-  return { text: await downloadCaption(base), language: legacy.lang || null };
+  return { text: cleanTranscript(await downloadCaption(base)), language: legacy.lang || null };
 }
 
 /** Speech-to-text fallback for admin-supplied audio of the session. */

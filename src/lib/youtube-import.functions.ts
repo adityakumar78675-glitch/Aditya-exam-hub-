@@ -5,6 +5,7 @@ import { extractYoutubeId, normalizeQuestion } from "@/lib/youtube-utils";
 import {
   ImportError,
   assertAdmin,
+  cleanTranscript,
   extractQuestions,
   fetchOembed,
   fetchTranscript,
@@ -148,7 +149,7 @@ export const adminExtractFromTranscript = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<AnalyzeResult> => {
     try {
       await assertAdmin(context.supabase as never, context.userId);
-      const transcript = data.transcript.trim();
+      const transcript = cleanTranscript(data.transcript);
       if (transcript.length < 200) {
         throw new ImportError("empty_transcript", "The transcript is too short to extract questions from.");
       }
