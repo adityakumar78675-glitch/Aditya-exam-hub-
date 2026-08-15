@@ -187,6 +187,46 @@ export const Route = createFileRoute("/api/chat")({
           }
 
 
+          // Personal teaching context — read with the student's own RLS-scoped client,
+          // so Master Ji only ever sees the logged-in student's data.
+          const studentContext: StudentContext = { batches: [], recentTests: [] };
+          try {
+            const [profileRes, enrolRes, attemptRes] = await Promise.all([
+              supabase.from("profiles").select("full_name, class_level").eq("id", userId).maybeSingle(),
+              supabase.from("enrollments").select("batches(title)").eq("student_id", userId).limit(10),
+              supabase
+                .from("test_attempts")
+                .select("score, total_marks, correct_count, incorrect_count, tests(title)")
+                .eq("student_id", userId)
+                .not("submitted_at", "is", null)
+                .order("submitted_at", { ascending: false })
+                .limit(5),
+            ]);
+            studentContext.name = profileRes.data?.full_name ?? null;
+            studentContext.classLevel = profileRes.data?.class_level ?? null;
+            studentContext.batches = (enrolRes.data ?? [])
+              .map((e) => (e as { batches?: { title?: string } | null }).batches?.title ?? "")
+              .filter(Boolean);
+            studentContext.recentTests = (attemptRes.data ?? []).map((a) => {
+              const row = a as {
+                score: number | null;
+                total_marks: number | null;
+                correct_count: number | null;
+                incorrect_count: number | null;
+                tests?: { title?: string } | null;
+              };
+              const attempted = (row.correct_count ?? 0) + (row.incorrect_count ?? 0);
+              return {
+                title: row.tests?.title ?? "Test",
+                score: row.score,
+                total: row.total_marks,
+                accuracy: attempted ? Math.round(((row.correct_count ?? 0) / attempted) * 100) : null,
+              };
+            });
+          } catch (ctxErr) {
+            console.error("student context failed", ctxErr);
+          }
+
           const apiKey = process.env.LOVABLE_API_KEY;
           if (!apiKey) return new Response("AI not configured", { status: 500 });
 
@@ -195,9 +235,10 @@ export const Route = createFileRoute("/api/chat")({
 
           const result = streamText({
             model,
-            system: SYSTEM_PROMPT,
+            system: SYSTEM_PROMPT + renderContext(studentContext, pageContext),
             messages: await convertToModelMessages(messages),
           });
+
 
           return result.toUIMessageStreamResponse({
             originalMessages: messages,
