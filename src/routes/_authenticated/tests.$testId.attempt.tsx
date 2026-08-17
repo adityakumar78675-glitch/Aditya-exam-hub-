@@ -101,6 +101,8 @@ function AttemptPage() {
     if (!active) return;
     setAnswers(active.answers ?? {});
     setMarked(active.marked ?? {});
+    setChecked(active.checked ?? {});
+    setReveals(active.reveals ?? {});
     const drift = Date.now() - new Date(active.serverNow).getTime();
     const tick = () => {
       const left = (new Date(active.expiresAt).getTime() + drift - Date.now()) / 1000;
@@ -110,6 +112,7 @@ function AttemptPage() {
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [active]);
+
 
   // restore any offline draft
   useEffect(() => {
