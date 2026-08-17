@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, CheckCircle2, Lock } from "lucide-react";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { toast } from "sonner";
+import { getSignedLectureUrl } from "@/lib/lecture-upload";
 
 export const Route = createFileRoute("/_authenticated/lectures/$lectureId")({
   component: LecturePage,
@@ -42,6 +43,16 @@ function LecturePage() {
         .maybeSingle();
       return data;
     },
+  });
+
+  const { data: signed } = useQuery({
+    queryKey: ["lecture-signed", lectureId, lecture?.video_storage_path, lecture?.thumbnail_storage_path],
+    enabled: !!lecture?.video_storage_path,
+    staleTime: 1000 * 60 * 30,
+    queryFn: async () => ({
+      video: await getSignedLectureUrl(lecture!.video_storage_path),
+      poster: await getSignedLectureUrl(lecture!.thumbnail_storage_path),
+    }),
   });
 
   const { data: progress } = useQuery({
@@ -126,8 +137,8 @@ function LecturePage() {
           </div>
         ) : (
           <VideoPlayer
-            url={lecture.video_url}
-            poster={lecture.thumbnail_url}
+            url={signed?.video ?? lecture.video_url}
+            poster={signed?.poster ?? lecture.thumbnail_url}
             initialPosition={progress?.position_seconds ?? 0}
             onProgress={handleProgress}
             onEnded={() => saveProgress.mutate({ position: 0, percent: 100, completed: true })}
@@ -139,6 +150,8 @@ function LecturePage() {
             <h2 className="text-xl md:text-2xl font-bold">{lecture.title}</h2>
             <p className="text-xs text-muted-foreground mt-1">
               {lecture.duration_minutes ?? 0} min
+              {lecture.teacher && <span className="ml-2">• {lecture.teacher}</span>}
+              {isAdmin && lecture.status !== "published" && <span className="ml-2 uppercase text-[10px] font-bold bg-muted px-2 py-0.5 rounded">{lecture.status}</span>}
               {lecture.is_free && <span className="ml-2 bg-accent/10 text-accent font-bold px-2 py-0.5 rounded uppercase text-[10px]">Free</span>}
               {progress?.completed && <span className="ml-2 inline-flex items-center gap-1 text-accent font-semibold"><CheckCircle2 className="size-3" /> Completed</span>}
             </p>

@@ -511,15 +511,23 @@ export type Database = {
           created_at: string
           description: string | null
           duration_minutes: number | null
+          duration_seconds: number | null
+          file_size: number | null
           id: string
           is_free: boolean
           is_live: boolean
           order_index: number
           scheduled_at: string | null
+          status: string
           subject_id: string | null
+          tags: string[]
+          teacher: string | null
+          thumbnail_storage_path: string | null
           thumbnail_url: string | null
           title: string
           updated_at: string
+          uploaded_by: string | null
+          video_storage_path: string | null
           video_url: string | null
         }
         Insert: {
@@ -528,15 +536,23 @@ export type Database = {
           created_at?: string
           description?: string | null
           duration_minutes?: number | null
+          duration_seconds?: number | null
+          file_size?: number | null
           id?: string
           is_free?: boolean
           is_live?: boolean
           order_index?: number
           scheduled_at?: string | null
+          status?: string
           subject_id?: string | null
+          tags?: string[]
+          teacher?: string | null
+          thumbnail_storage_path?: string | null
           thumbnail_url?: string | null
           title: string
           updated_at?: string
+          uploaded_by?: string | null
+          video_storage_path?: string | null
           video_url?: string | null
         }
         Update: {
@@ -545,15 +561,23 @@ export type Database = {
           created_at?: string
           description?: string | null
           duration_minutes?: number | null
+          duration_seconds?: number | null
+          file_size?: number | null
           id?: string
           is_free?: boolean
           is_live?: boolean
           order_index?: number
           scheduled_at?: string | null
+          status?: string
           subject_id?: string | null
+          tags?: string[]
+          teacher?: string | null
+          thumbnail_storage_path?: string | null
           thumbnail_url?: string | null
           title?: string
           updated_at?: string
+          uploaded_by?: string | null
+          video_storage_path?: string | null
           video_url?: string | null
         }
         Relationships: [
