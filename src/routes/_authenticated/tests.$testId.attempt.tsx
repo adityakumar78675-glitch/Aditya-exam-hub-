@@ -3,7 +3,14 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { getAttemptState, saveAnswers, submitTest, type SafeQuestion } from "@/lib/tests.functions";
+import {
+  getAttemptState,
+  saveAnswers,
+  submitTest,
+  revealAnswer,
+  type SafeQuestion,
+  type Reveal,
+} from "@/lib/tests.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
