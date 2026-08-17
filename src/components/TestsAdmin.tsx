@@ -32,6 +32,8 @@ type TestRow = {
   randomize_options: boolean;
   show_solutions: boolean;
   leaderboard_enabled: boolean;
+  allow_show_answer: boolean;
+  practice_mode: boolean;
   start_at: string | null;
   end_at: string | null;
   is_published: boolean;
@@ -52,6 +54,8 @@ const emptyTest = (): Partial<TestRow> => ({
   randomize_options: false,
   show_solutions: true,
   leaderboard_enabled: false,
+  allow_show_answer: false,
+  practice_mode: false,
   is_published: false,
   batch_id: null,
   allow_reattempts: true,
@@ -97,6 +101,8 @@ export function TestsAdmin() {
         randomize_options: !!t.randomize_options,
         show_solutions: !!t.show_solutions,
         leaderboard_enabled: !!t.leaderboard_enabled,
+        allow_show_answer: !!t.allow_show_answer,
+        practice_mode: !!t.practice_mode,
         start_at: t.start_at || null,
         end_at: t.end_at || null,
         is_published: !!t.is_published,
@@ -245,6 +251,8 @@ export function TestsAdmin() {
                 <Toggle label="Randomize question order" checked={!!editing.randomize_questions} onChange={(v) => setEditing({ ...editing, randomize_questions: v })} />
                 <Toggle label="Randomize option order" checked={!!editing.randomize_options} onChange={(v) => setEditing({ ...editing, randomize_options: v })} />
                 <Toggle label="Show solutions after submit" checked={!!editing.show_solutions} onChange={(v) => setEditing({ ...editing, show_solutions: v })} />
+                <Toggle label="Allow Show Answer During Test" checked={!!editing.allow_show_answer} onChange={(v) => setEditing({ ...editing, allow_show_answer: v })} />
+                <Toggle label="Practice Mode (answers + explanation during test)" checked={!!editing.practice_mode} onChange={(v) => setEditing({ ...editing, practice_mode: v })} />
                 <Toggle label="Enable leaderboard / rank" checked={!!editing.leaderboard_enabled} onChange={(v) => setEditing({ ...editing, leaderboard_enabled: v })} />
                 <Toggle label="Published" checked={!!editing.is_published} onChange={(v) => setEditing({ ...editing, is_published: v })} />
                 <Toggle
