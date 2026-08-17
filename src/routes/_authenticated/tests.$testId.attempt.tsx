@@ -3,7 +3,14 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { getAttemptState, saveAnswers, submitTest, type SafeQuestion } from "@/lib/tests.functions";
+import {
+  getAttemptState,
+  saveAnswers,
+  submitTest,
+  revealAnswer,
+  type SafeQuestion,
+  type Reveal,
+} from "@/lib/tests.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,7 +37,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Clock, Grid3X3, Monitor, X, ZoomIn, WifiOff } from "lucide-react";
+import { Clock, Grid3X3, Monitor, X, ZoomIn, WifiOff, Eye } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/tests/$testId/attempt")({
   ssr: false,
@@ -51,7 +58,14 @@ type AnswerValue = number | string | boolean | null;
 type Answers = Record<string, AnswerValue>;
 type Marks = Record<string, boolean>;
 
-type Status = "not-visited" | "answered" | "not-answered" | "marked" | "answered-marked";
+type Status =
+  | "not-visited"
+  | "answered"
+  | "not-answered"
+  | "marked"
+  | "answered-marked"
+  | "checked-correct"
+  | "checked-wrong";
 
 function fmt(sec: number) {
   const s = Math.max(0, Math.floor(sec));
@@ -68,6 +82,7 @@ function AttemptPage() {
   const fetchState = useServerFn(getAttemptState);
   const persist = useServerFn(saveAnswers);
   const doSubmit = useServerFn(submitTest);
+  const doReveal = useServerFn(revealAnswer);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["attempt", testId],
@@ -78,6 +93,9 @@ function AttemptPage() {
 
   const [answers, setAnswers] = useState<Answers>({});
   const [marked, setMarked] = useState<Marks>({});
+  const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const [reveals, setReveals] = useState<Record<string, Reveal>>({});
+  const [revealing, setRevealing] = useState(false);
   const [visited, setVisited] = useState<Record<string, boolean>>({});
   const [current, setCurrent] = useState(0);
   const [lang, setLang] = useState<"en" | "hi">("en");
@@ -101,6 +119,8 @@ function AttemptPage() {
     if (!active) return;
     setAnswers(active.answers ?? {});
     setMarked(active.marked ?? {});
+    setChecked(active.checked ?? {});
+    setReveals(active.reveals ?? {});
     const drift = Date.now() - new Date(active.serverNow).getTime();
     const tick = () => {
       const left = (new Date(active.expiresAt).getTime() + drift - Date.now()) / 1000;
@@ -110,6 +130,7 @@ function AttemptPage() {
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [active]);
+
 
   // restore any offline draft
   useEffect(() => {
@@ -229,7 +250,14 @@ function AttemptPage() {
   const qText = (showHi && q.question_hi) || q.question_en;
   const options = showHi && q.options_hi?.length ? q.options_hi : q.options_en;
 
+  const canShowAnswer = !!active.canShowAnswer;
+  const currentReveal = reveals[q.id] ?? null;
+  const isChecked = !!checked[q.id];
+  const answeredCurrent = answers[q.id] !== undefined && answers[q.id] !== null && answers[q.id] !== "";
+
   const statusOf = (qq: SafeQuestion): Status => {
+    const rv = reveals[qq.id];
+    if (checked[qq.id] && rv) return rv.verdict === true ? "checked-correct" : "checked-wrong";
     const a = answers[qq.id];
     const answered = a !== undefined && a !== null && a !== "";
     const m = !!marked[qq.id];
@@ -243,22 +271,53 @@ function AttemptPage() {
   const counts = questions.reduce(
     (acc, qq) => {
       const s = statusOf(qq);
-      if (s === "answered" || s === "answered-marked") acc.answered++;
+      const a = answers[qq.id];
+      const answered = a !== undefined && a !== null && a !== "";
+      if (answered) acc.answered++;
       else acc.unanswered++;
       if (s === "marked" || s === "answered-marked") acc.marked++;
+      if (s === "checked-correct") acc.correct++;
+      if (s === "checked-wrong") acc.wrong++;
       return acc;
     },
-    { answered: 0, unanswered: 0, marked: 0 },
+    { answered: 0, unanswered: 0, marked: 0, correct: 0, wrong: 0 },
   );
 
+  // Live (preview only) score from checked questions — final score is graded on submit.
+  const liveScore = questions.reduce((sum, qq) => {
+    const rv = reveals[qq.id];
+    if (!checked[qq.id] || !rv) return sum;
+    if (rv.verdict === true) return sum + Number(qq.positive_marks);
+    if (rv.verdict === false) return sum - Number(qq.negative_marks);
+    return sum;
+  }, 0);
+
   const setAnswer = (val: AnswerValue) => {
+    if (checked[q.id]) return; // locked after Show Answer
     setAnswers((a) => ({ ...a, [q.id]: val }));
     queue({ answers: { [q.id]: val } });
   };
 
   const clearAnswer = () => {
+    if (checked[q.id]) return;
     setAnswers((a) => ({ ...a, [q.id]: null }));
     queue({ answers: { [q.id]: null } });
+  };
+
+  const showAnswer = async () => {
+    if (!canShowAnswer || isChecked || !answeredCurrent || revealing) return;
+    setRevealing(true);
+    try {
+      await flush();
+      const res = await doReveal({ data: { testId, questionId: q.id, answer: answers[q.id] ?? null } });
+      setReveals((r) => ({ ...r, [res.questionId]: res.reveal }));
+      setChecked((c) => ({ ...c, [res.questionId]: true }));
+      setAnswers((a) => ({ ...a, [res.questionId]: res.answer }));
+    } catch (e) {
+      toast.error((e as Error).message || "Could not check this answer");
+    } finally {
+      setRevealing(false);
+    }
   };
 
   const toggleMark = () => {
@@ -277,6 +336,9 @@ function AttemptPage() {
       "not-visited": "bg-muted text-muted-foreground border-border",
       "answered": "bg-primary text-primary-foreground border-primary",
       "not-answered": "bg-destructive/15 text-destructive border-destructive/40",
+      "checked-correct": "bg-emerald-600 text-white border-emerald-700",
+      "checked-wrong": "bg-destructive text-destructive-foreground border-destructive",
+
       "marked": "bg-accent text-accent-foreground border-accent",
       "answered-marked": "bg-accent text-accent-foreground border-accent ring-2 ring-primary",
     })[s];
@@ -298,12 +360,34 @@ function AttemptPage() {
         ))}
       </div>
       <div className="mt-5 space-y-2 text-xs">
+        {canShowAnswer && (
+          <>
+            <LegendRow className="bg-emerald-600" label={`Checked correct (${counts.correct})`} />
+            <LegendRow className="bg-destructive" label={`Checked wrong (${counts.wrong})`} />
+          </>
+        )}
         <LegendRow className="bg-primary" label={`Attempted (${counts.answered})`} />
+
         <LegendRow className="bg-destructive/40" label={`Unattempted (${counts.unanswered})`} />
         <LegendRow className="bg-accent" label={`Marked for Review (${counts.marked})`} />
         <LegendRow className="bg-accent ring-2 ring-primary" label="Answered & Marked" />
         <LegendRow className="bg-muted border border-border" label="Not Visited" />
       </div>
+      {canShowAnswer && (counts.correct > 0 || counts.wrong > 0) && (
+        <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3 text-xs">
+          <p className="font-semibold text-foreground">Live preview</p>
+          <p className="mt-1 text-muted-foreground">
+            Correct: {counts.correct} · Wrong: {counts.wrong} · Unattempted: {counts.unanswered}
+          </p>
+          <p className="text-muted-foreground">
+            Preview score: <span className="font-semibold tabular-nums text-foreground">{liveScore}</span>
+          </p>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            This is only a preview of checked questions — the final score is calculated after you submit.
+          </p>
+        </div>
+      )}
+
     </div>
   );
 
@@ -400,22 +484,33 @@ function AttemptPage() {
               {q.type === "mcq" &&
                 options.map((opt, i) => {
                   const selected = Number(answers[q.id]) === i && answers[q.id] !== null && answers[q.id] !== undefined;
+                  const isCorrectOpt = !!currentReveal && currentReveal.correctIndex === i;
+                  const isWrongPick = !!currentReveal && selected && currentReveal.verdict === false;
+                  const tone = isCorrectOpt
+                    ? "border-emerald-600 bg-emerald-600/10 ring-1 ring-emerald-600"
+                    : isWrongPick
+                      ? "border-destructive bg-destructive/10 ring-1 ring-destructive"
+                      : selected
+                        ? "border-primary bg-primary/10 ring-1 ring-primary"
+                        : "border-border bg-card hover:border-primary/50";
+                  const badge = isCorrectOpt
+                    ? "bg-emerald-600 text-white"
+                    : isWrongPick
+                      ? "bg-destructive text-destructive-foreground"
+                      : selected
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground";
                   return (
                     <button
                       key={i}
                       type="button"
+                      disabled={isChecked}
                       onClick={() => setAnswer(i)}
-                      className={`w-full text-left rounded-xl border p-4 transition-colors flex gap-3 items-start ${
-                        selected
-                          ? "border-primary bg-primary/10 ring-1 ring-primary"
-                          : "border-border bg-card hover:border-primary/50"
+                      className={`w-full text-left rounded-xl border p-4 transition-colors flex gap-3 items-start ${tone} ${
+                        isChecked ? "cursor-default" : ""
                       }`}
                     >
-                      <span
-                        className={`shrink-0 size-7 rounded-full grid place-items-center text-sm font-bold ${
-                          selected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                        }`}
-                      >
+                      <span className={`shrink-0 size-7 rounded-full grid place-items-center text-sm font-bold ${badge}`}>
                         {String.fromCharCode(65 + i)}
                       </span>
                       <span className="min-w-0 flex-1">
@@ -428,16 +523,22 @@ function AttemptPage() {
               {q.type === "truefalse" &&
                 ["true", "false"].map((v) => {
                   const selected = String(answers[q.id]) === v;
+                  const isCorrectOpt = !!currentReveal && currentReveal.correctBool === (v === "true");
+                  const isWrongPick = !!currentReveal && selected && currentReveal.verdict === false;
+                  const tone = isCorrectOpt
+                    ? "border-emerald-600 bg-emerald-600/10 ring-1 ring-emerald-600"
+                    : isWrongPick
+                      ? "border-destructive bg-destructive/10 ring-1 ring-destructive"
+                      : selected
+                        ? "border-primary bg-primary/10 ring-1 ring-primary"
+                        : "border-border bg-card hover:border-primary/50";
                   return (
                     <button
                       key={v}
                       type="button"
+                      disabled={isChecked}
                       onClick={() => setAnswer(v === "true")}
-                      className={`w-full text-left rounded-xl border p-4 font-medium capitalize transition-colors ${
-                        selected
-                          ? "border-primary bg-primary/10 ring-1 ring-primary"
-                          : "border-border bg-card hover:border-primary/50"
-                      }`}
+                      className={`w-full text-left rounded-xl border p-4 font-medium capitalize transition-colors ${tone}`}
                     >
                       {v}
                     </button>
@@ -449,6 +550,7 @@ function AttemptPage() {
                   type="number"
                   inputMode="decimal"
                   placeholder="Enter your numerical answer"
+                  disabled={isChecked}
                   value={answers[q.id] === null || answers[q.id] === undefined ? "" : String(answers[q.id])}
                   onChange={(e) => setAnswer(e.target.value === "" ? null : e.target.value)}
                   className="max-w-xs text-lg"
@@ -459,11 +561,63 @@ function AttemptPage() {
                 <Textarea
                   rows={7}
                   placeholder="Write your answer here..."
+                  disabled={isChecked}
                   value={answers[q.id] === null || answers[q.id] === undefined ? "" : String(answers[q.id])}
                   onChange={(e) => setAnswer(e.target.value === "" ? null : e.target.value)}
                 />
               )}
             </div>
+
+            {currentReveal && (
+              <div
+                className={`mt-6 rounded-xl border p-4 ${
+                  currentReveal.verdict === true
+                    ? "border-emerald-600 bg-emerald-600/10"
+                    : currentReveal.verdict === false
+                      ? "border-destructive bg-destructive/10"
+                      : "border-border bg-muted/40"
+                }`}
+              >
+                <p className="font-bold">
+                  {currentReveal.verdict === true
+                    ? "✅ Correct Answer — Correct! 🎉"
+                    : currentReveal.verdict === false
+                      ? "❌ Wrong Answer"
+                      : "Answer checked"}
+                </p>
+                {currentReveal.verdict === false && (
+                  <p className="mt-1 text-sm">
+                    Correct Answer:{" "}
+                    <span className="font-semibold">
+                      {q.type === "mcq" && currentReveal.correctIndex !== null
+                        ? String.fromCharCode(65 + currentReveal.correctIndex)
+                        : q.type === "truefalse" && currentReveal.correctBool !== null
+                          ? currentReveal.correctBool
+                            ? "True"
+                            : "False"
+                          : currentReveal.correctNumeric !== null
+                            ? String(currentReveal.correctNumeric)
+                            : "—"}
+                    </span>
+                  </p>
+                )}
+                <div className="mt-3">
+                  <p className="text-sm font-semibold">Explanation:</p>
+                  {(showHi && currentReveal.solution_hi) || currentReveal.solution_en ? (
+                    <div className="mt-1 text-sm">
+                      <RichMarkdown>
+                        {((showHi && currentReveal.solution_hi) || currentReveal.solution_en) as string}
+                      </RichMarkdown>
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Explanation is not available for this question.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
           </div>
         </main>
 
@@ -491,13 +645,25 @@ function AttemptPage() {
             </SheetContent>
           </Sheet>
 
-          <Button variant="outline" size="sm" onClick={clearAnswer}>
+          <Button variant="outline" size="sm" onClick={clearAnswer} disabled={isChecked}>
             Clear
           </Button>
           <Button variant={marked[q.id] ? "default" : "outline"} size="sm" onClick={toggleMark} className="hidden sm:inline-flex">
             {marked[q.id] ? "Unmark" : "Mark for Review"}
           </Button>
+          {canShowAnswer && (
+            <Button
+              variant={isChecked ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => void showAnswer()}
+              disabled={isChecked || !answeredCurrent || revealing}
+            >
+              <Eye className="size-4 mr-1" />
+              {isChecked ? "Answer Checked" : revealing ? "Checking..." : "Show Answer"}
+            </Button>
+          )}
           <div className="flex-1" />
+
           <Button variant="outline" size="sm" onClick={() => go(current - 1)} disabled={current === 0}>
             Previous
           </Button>

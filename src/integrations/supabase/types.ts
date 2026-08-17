@@ -886,6 +886,7 @@ export type Database = {
         Row: {
           answers: Json
           attempt_number: number
+          checked: Json
           correct_count: number | null
           created_at: string
           expires_at: string
@@ -906,6 +907,7 @@ export type Database = {
         Insert: {
           answers?: Json
           attempt_number?: number
+          checked?: Json
           correct_count?: number | null
           created_at?: string
           expires_at: string
@@ -926,6 +928,7 @@ export type Database = {
         Update: {
           answers?: Json
           attempt_number?: number
+          checked?: Json
           correct_count?: number | null
           created_at?: string
           expires_at?: string
@@ -1045,6 +1048,7 @@ export type Database = {
       tests: {
         Row: {
           allow_reattempts: boolean
+          allow_show_answer: boolean
           batch_id: string | null
           created_at: string
           duration_minutes: number
@@ -1057,6 +1061,7 @@ export type Database = {
           max_attempts: number | null
           negative_marks: number
           positive_marks: number
+          practice_mode: boolean
           randomize_options: boolean
           randomize_questions: boolean
           ranking_mode: string
@@ -1068,6 +1073,7 @@ export type Database = {
         }
         Insert: {
           allow_reattempts?: boolean
+          allow_show_answer?: boolean
           batch_id?: string | null
           created_at?: string
           duration_minutes?: number
@@ -1080,6 +1086,7 @@ export type Database = {
           max_attempts?: number | null
           negative_marks?: number
           positive_marks?: number
+          practice_mode?: boolean
           randomize_options?: boolean
           randomize_questions?: boolean
           ranking_mode?: string
@@ -1091,6 +1098,7 @@ export type Database = {
         }
         Update: {
           allow_reattempts?: boolean
+          allow_show_answer?: boolean
           batch_id?: string | null
           created_at?: string
           duration_minutes?: number
@@ -1103,6 +1111,7 @@ export type Database = {
           max_attempts?: number | null
           negative_marks?: number
           positive_marks?: number
+          practice_mode?: boolean
           randomize_options?: boolean
           randomize_questions?: boolean
           ranking_mode?: string

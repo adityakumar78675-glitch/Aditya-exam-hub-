@@ -58,6 +58,17 @@ export type SafeQuestion = {
 
 type AnswerValue = number | string | boolean | null;
 
+/** Payload sent only after a student legitimately reveals an answer. */
+export type Reveal = {
+  verdict: boolean | null;
+  correctIndex: number | null;
+  correctNumeric: number | null;
+  correctBool: boolean | null;
+  solution_en: string | null;
+  solution_hi: string | null;
+};
+
+
 export type SolutionItem = {
   number: number;
   id: string;
@@ -358,7 +369,9 @@ export const getAttemptState = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { data: test } = await supabase
       .from("tests")
-      .select("id, title, subject, duration_minutes, languages, positive_marks, negative_marks, randomize_options")
+      .select(
+        "id, title, subject, duration_minutes, languages, positive_marks, negative_marks, randomize_options, allow_show_answer, practice_mode",
+      )
       .eq("id", data.testId)
       .maybeSingle();
     if (!test) throw new Error("Test not available");
@@ -366,7 +379,7 @@ export const getAttemptState = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: attempt } = await supabaseAdmin
       .from("test_attempts")
-      .select("id, attempt_number, question_order, answers, marked, started_at, expires_at, submitted_at")
+      .select("id, attempt_number, question_order, answers, marked, checked, started_at, expires_at, submitted_at")
       .eq("test_id", data.testId)
       .eq("student_id", userId)
       .is("submitted_at", null)
@@ -379,9 +392,10 @@ export const getAttemptState = createServerFn({ method: "POST" })
     const { data: rows } = await supabaseAdmin
       .from("test_questions")
       .select(
-        "id, type, question_en, question_hi, image_url, options_en, options_hi, positive_marks, negative_marks",
+        "id, type, question_en, question_hi, image_url, options_en, options_hi, positive_marks, negative_marks, correct_option, correct_numeric, correct_bool, solution_en, solution_hi",
       )
       .eq("test_id", data.testId);
+
 
     const byId = new Map((rows ?? []).map((r) => [r.id, r]));
     const questions: SafeQuestion[] = attempt.question_order
@@ -410,19 +424,136 @@ export const getAttemptState = createServerFn({ method: "POST" })
       })
       .filter(Boolean) as SafeQuestion[];
 
+    const answersMap = (attempt.answers ?? {}) as Record<string, AnswerValue>;
+    const checkedMap = (attempt.checked ?? {}) as Record<string, boolean>;
+    const canShowAnswer = !!(test.allow_show_answer || test.practice_mode);
+
+    // Only questions the student already revealed carry answer data.
+    const reveals: Record<string, Reveal> = {};
+    if (canShowAnswer) {
+      for (const qid of Object.keys(checkedMap)) {
+        if (!checkedMap[qid]) continue;
+        const r = byId.get(qid);
+        if (!r) continue;
+        reveals[qid] = buildReveal(r, answersMap[qid] ?? null, permFor(test, r, attempt.id));
+      }
+    }
+
     return {
       status: "active" as const,
       test,
+      canShowAnswer,
+      practiceMode: !!test.practice_mode,
       attemptId: attempt.id,
       attemptNumber: attempt.attempt_number,
-      answers: (attempt.answers ?? {}) as Record<string, AnswerValue>,
+      answers: answersMap,
       marked: (attempt.marked ?? {}) as Record<string, boolean>,
+      checked: checkedMap,
+      reveals,
       startedAt: attempt.started_at,
       expiresAt: attempt.expires_at,
       serverNow: new Date().toISOString(),
       questions,
     };
   });
+
+/* ---------------- show answer (practice / show-answer mode) ---------------- */
+
+type QuestionRow = {
+  id: string;
+  type: string;
+  options_en: unknown;
+  correct_option: number | null;
+  correct_numeric: number | null;
+  correct_bool: boolean | null;
+  solution_en?: string | null;
+  solution_hi?: string | null;
+};
+
+function permFor(
+  test: { randomize_options: boolean | null },
+  q: QuestionRow,
+  attemptId: string,
+): number[] | null {
+  const count = ((q.options_en as string[] | null) ?? []).length;
+  return test.randomize_options && q.type === "mcq" && count > 1
+    ? optionPermutation(count, attemptId, q.id)
+    : null;
+}
+
+function buildReveal(q: QuestionRow, raw: AnswerValue, perm: number[] | null): Reveal {
+  // For a shuffled attempt the stored correct index must be mapped into the
+  // option order the student is actually looking at.
+  let correctIndex: number | null = q.correct_option;
+  if (q.type === "mcq" && perm && q.correct_option !== null) {
+    const shown = perm.indexOf(q.correct_option);
+    correctIndex = shown >= 0 ? shown : null;
+  }
+  return {
+    verdict: isCorrect(q as never, raw, perm),
+    correctIndex: q.type === "mcq" ? correctIndex : null,
+    correctNumeric: q.correct_numeric === null ? null : Number(q.correct_numeric),
+    correctBool: q.correct_bool,
+    solution_en: q.solution_en ?? null,
+    solution_hi: q.solution_hi ?? null,
+  };
+}
+
+export const revealAnswer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { testId: string; questionId: string; answer: AnswerValue }) => d)
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: test } = await supabase
+      .from("tests")
+      .select("id, randomize_options, allow_show_answer, practice_mode")
+      .eq("id", data.testId)
+      .maybeSingle();
+    if (!test) throw new Error("Test not available");
+    if (!test.allow_show_answer && !test.practice_mode)
+      throw new Error("Show Answer is not enabled for this test");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: attempt } = await supabaseAdmin
+      .from("test_attempts")
+      .select("id, question_order, answers, checked, submitted_at, expires_at")
+      .eq("test_id", data.testId)
+      .eq("student_id", userId)
+      .is("submitted_at", null)
+      .order("attempt_number", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!attempt) throw new Error("No active attempt");
+    if (!attempt.question_order.includes(data.questionId)) throw new Error("Question not in this attempt");
+    if (Date.now() > new Date(attempt.expires_at).getTime()) throw new Error("Time is up");
+
+    const answers = { ...((attempt.answers ?? {}) as Record<string, AnswerValue>) };
+    const checked = { ...((attempt.checked ?? {}) as Record<string, boolean>) };
+
+    // Answer is locked once checked: a previously revealed question keeps its saved answer.
+    if (!checked[data.questionId]) answers[data.questionId] = data.answer;
+    const raw = answers[data.questionId] ?? null;
+    if (raw === null || raw === "") throw new Error("Select an answer first");
+    checked[data.questionId] = true;
+
+    const { data: q } = await supabaseAdmin
+      .from("test_questions")
+      .select("id, type, options_en, correct_option, correct_numeric, correct_bool, solution_en, solution_hi")
+      .eq("id", data.questionId)
+      .eq("test_id", data.testId)
+      .maybeSingle();
+    if (!q) throw new Error("Question not found");
+
+    const { error } = await supabaseAdmin
+      .from("test_attempts")
+      .update({ answers, checked })
+      .eq("id", attempt.id)
+      .is("submitted_at", null);
+    if (error) throw new Error(error.message);
+
+    return { questionId: data.questionId, answer: raw, reveal: buildReveal(q, raw, permFor(test, q, attempt.id)) };
+  });
+
 
 /* ---------------- save answers (batched, offline-safe) ---------------- */
 
@@ -434,7 +565,7 @@ export const saveAnswers = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: attempt } = await supabaseAdmin
       .from("test_attempts")
-      .select("id, answers, marked, submitted_at, expires_at")
+      .select("id, answers, marked, checked, submitted_at, expires_at")
       .eq("test_id", data.testId)
       .eq("student_id", userId)
       .is("submitted_at", null)
@@ -444,7 +575,11 @@ export const saveAnswers = createServerFn({ method: "POST" })
     if (!attempt) throw new Error("No active attempt");
     if (attempt.submitted_at) return { ok: false, submitted: true };
 
-    const answers = { ...((attempt.answers ?? {}) as Record<string, AnswerValue>), ...data.answers };
+    const checked = (attempt.checked ?? {}) as Record<string, boolean>;
+    // Revealed questions are locked — ignore any late client writes for them.
+    const incoming: Record<string, AnswerValue> = {};
+    for (const [k, v] of Object.entries(data.answers)) if (!checked[k]) incoming[k] = v;
+    const answers = { ...((attempt.answers ?? {}) as Record<string, AnswerValue>), ...incoming };
     const marked = { ...((attempt.marked ?? {}) as Record<string, boolean>), ...data.marked };
     const { error } = await supabaseAdmin
       .from("test_attempts")
