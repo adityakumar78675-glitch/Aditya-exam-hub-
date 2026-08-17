@@ -250,7 +250,14 @@ function AttemptPage() {
   const qText = (showHi && q.question_hi) || q.question_en;
   const options = showHi && q.options_hi?.length ? q.options_hi : q.options_en;
 
+  const canShowAnswer = !!active.canShowAnswer;
+  const currentReveal = reveals[q.id] ?? null;
+  const isChecked = !!checked[q.id];
+  const answeredCurrent = answers[q.id] !== undefined && answers[q.id] !== null && answers[q.id] !== "";
+
   const statusOf = (qq: SafeQuestion): Status => {
+    const rv = reveals[qq.id];
+    if (checked[qq.id] && rv) return rv.verdict === true ? "checked-correct" : "checked-wrong";
     const a = answers[qq.id];
     const answered = a !== undefined && a !== null && a !== "";
     const m = !!marked[qq.id];
@@ -264,22 +271,53 @@ function AttemptPage() {
   const counts = questions.reduce(
     (acc, qq) => {
       const s = statusOf(qq);
-      if (s === "answered" || s === "answered-marked") acc.answered++;
+      const a = answers[qq.id];
+      const answered = a !== undefined && a !== null && a !== "";
+      if (answered) acc.answered++;
       else acc.unanswered++;
       if (s === "marked" || s === "answered-marked") acc.marked++;
+      if (s === "checked-correct") acc.correct++;
+      if (s === "checked-wrong") acc.wrong++;
       return acc;
     },
-    { answered: 0, unanswered: 0, marked: 0 },
+    { answered: 0, unanswered: 0, marked: 0, correct: 0, wrong: 0 },
   );
 
+  // Live (preview only) score from checked questions — final score is graded on submit.
+  const liveScore = questions.reduce((sum, qq) => {
+    const rv = reveals[qq.id];
+    if (!checked[qq.id] || !rv) return sum;
+    if (rv.verdict === true) return sum + Number(qq.positive_marks);
+    if (rv.verdict === false) return sum - Number(qq.negative_marks);
+    return sum;
+  }, 0);
+
   const setAnswer = (val: AnswerValue) => {
+    if (checked[q.id]) return; // locked after Show Answer
     setAnswers((a) => ({ ...a, [q.id]: val }));
     queue({ answers: { [q.id]: val } });
   };
 
   const clearAnswer = () => {
+    if (checked[q.id]) return;
     setAnswers((a) => ({ ...a, [q.id]: null }));
     queue({ answers: { [q.id]: null } });
+  };
+
+  const showAnswer = async () => {
+    if (!canShowAnswer || isChecked || !answeredCurrent || revealing) return;
+    setRevealing(true);
+    try {
+      await flush();
+      const res = await doReveal({ data: { testId, questionId: q.id, answer: answers[q.id] ?? null } });
+      setReveals((r) => ({ ...r, [res.questionId]: res.reveal }));
+      setChecked((c) => ({ ...c, [res.questionId]: true }));
+      setAnswers((a) => ({ ...a, [res.questionId]: res.answer }));
+    } catch (e) {
+      toast.error((e as Error).message || "Could not check this answer");
+    } finally {
+      setRevealing(false);
+    }
   };
 
   const toggleMark = () => {
@@ -298,6 +336,9 @@ function AttemptPage() {
       "not-visited": "bg-muted text-muted-foreground border-border",
       "answered": "bg-primary text-primary-foreground border-primary",
       "not-answered": "bg-destructive/15 text-destructive border-destructive/40",
+      "checked-correct": "bg-emerald-600 text-white border-emerald-700",
+      "checked-wrong": "bg-destructive text-destructive-foreground border-destructive",
+
       "marked": "bg-accent text-accent-foreground border-accent",
       "answered-marked": "bg-accent text-accent-foreground border-accent ring-2 ring-primary",
     })[s];
