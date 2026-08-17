@@ -484,22 +484,33 @@ function AttemptPage() {
               {q.type === "mcq" &&
                 options.map((opt, i) => {
                   const selected = Number(answers[q.id]) === i && answers[q.id] !== null && answers[q.id] !== undefined;
+                  const isCorrectOpt = !!currentReveal && currentReveal.correctIndex === i;
+                  const isWrongPick = !!currentReveal && selected && currentReveal.verdict === false;
+                  const tone = isCorrectOpt
+                    ? "border-emerald-600 bg-emerald-600/10 ring-1 ring-emerald-600"
+                    : isWrongPick
+                      ? "border-destructive bg-destructive/10 ring-1 ring-destructive"
+                      : selected
+                        ? "border-primary bg-primary/10 ring-1 ring-primary"
+                        : "border-border bg-card hover:border-primary/50";
+                  const badge = isCorrectOpt
+                    ? "bg-emerald-600 text-white"
+                    : isWrongPick
+                      ? "bg-destructive text-destructive-foreground"
+                      : selected
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground";
                   return (
                     <button
                       key={i}
                       type="button"
+                      disabled={isChecked}
                       onClick={() => setAnswer(i)}
-                      className={`w-full text-left rounded-xl border p-4 transition-colors flex gap-3 items-start ${
-                        selected
-                          ? "border-primary bg-primary/10 ring-1 ring-primary"
-                          : "border-border bg-card hover:border-primary/50"
+                      className={`w-full text-left rounded-xl border p-4 transition-colors flex gap-3 items-start ${tone} ${
+                        isChecked ? "cursor-default" : ""
                       }`}
                     >
-                      <span
-                        className={`shrink-0 size-7 rounded-full grid place-items-center text-sm font-bold ${
-                          selected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                        }`}
-                      >
+                      <span className={`shrink-0 size-7 rounded-full grid place-items-center text-sm font-bold ${badge}`}>
                         {String.fromCharCode(65 + i)}
                       </span>
                       <span className="min-w-0 flex-1">
@@ -512,16 +523,22 @@ function AttemptPage() {
               {q.type === "truefalse" &&
                 ["true", "false"].map((v) => {
                   const selected = String(answers[q.id]) === v;
+                  const isCorrectOpt = !!currentReveal && currentReveal.correctBool === (v === "true");
+                  const isWrongPick = !!currentReveal && selected && currentReveal.verdict === false;
+                  const tone = isCorrectOpt
+                    ? "border-emerald-600 bg-emerald-600/10 ring-1 ring-emerald-600"
+                    : isWrongPick
+                      ? "border-destructive bg-destructive/10 ring-1 ring-destructive"
+                      : selected
+                        ? "border-primary bg-primary/10 ring-1 ring-primary"
+                        : "border-border bg-card hover:border-primary/50";
                   return (
                     <button
                       key={v}
                       type="button"
+                      disabled={isChecked}
                       onClick={() => setAnswer(v === "true")}
-                      className={`w-full text-left rounded-xl border p-4 font-medium capitalize transition-colors ${
-                        selected
-                          ? "border-primary bg-primary/10 ring-1 ring-primary"
-                          : "border-border bg-card hover:border-primary/50"
-                      }`}
+                      className={`w-full text-left rounded-xl border p-4 font-medium capitalize transition-colors ${tone}`}
                     >
                       {v}
                     </button>
@@ -533,6 +550,7 @@ function AttemptPage() {
                   type="number"
                   inputMode="decimal"
                   placeholder="Enter your numerical answer"
+                  disabled={isChecked}
                   value={answers[q.id] === null || answers[q.id] === undefined ? "" : String(answers[q.id])}
                   onChange={(e) => setAnswer(e.target.value === "" ? null : e.target.value)}
                   className="max-w-xs text-lg"
@@ -543,11 +561,63 @@ function AttemptPage() {
                 <Textarea
                   rows={7}
                   placeholder="Write your answer here..."
+                  disabled={isChecked}
                   value={answers[q.id] === null || answers[q.id] === undefined ? "" : String(answers[q.id])}
                   onChange={(e) => setAnswer(e.target.value === "" ? null : e.target.value)}
                 />
               )}
             </div>
+
+            {currentReveal && (
+              <div
+                className={`mt-6 rounded-xl border p-4 ${
+                  currentReveal.verdict === true
+                    ? "border-emerald-600 bg-emerald-600/10"
+                    : currentReveal.verdict === false
+                      ? "border-destructive bg-destructive/10"
+                      : "border-border bg-muted/40"
+                }`}
+              >
+                <p className="font-bold">
+                  {currentReveal.verdict === true
+                    ? "✅ Correct Answer — Correct! 🎉"
+                    : currentReveal.verdict === false
+                      ? "❌ Wrong Answer"
+                      : "Answer checked"}
+                </p>
+                {currentReveal.verdict === false && (
+                  <p className="mt-1 text-sm">
+                    Correct Answer:{" "}
+                    <span className="font-semibold">
+                      {q.type === "mcq" && currentReveal.correctIndex !== null
+                        ? String.fromCharCode(65 + currentReveal.correctIndex)
+                        : q.type === "truefalse" && currentReveal.correctBool !== null
+                          ? currentReveal.correctBool
+                            ? "True"
+                            : "False"
+                          : currentReveal.correctNumeric !== null
+                            ? String(currentReveal.correctNumeric)
+                            : "—"}
+                    </span>
+                  </p>
+                )}
+                <div className="mt-3">
+                  <p className="text-sm font-semibold">Explanation:</p>
+                  {(showHi && currentReveal.solution_hi) || currentReveal.solution_en ? (
+                    <div className="mt-1 text-sm">
+                      <RichMarkdown>
+                        {((showHi && currentReveal.solution_hi) || currentReveal.solution_en) as string}
+                      </RichMarkdown>
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Explanation is not available for this question.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
           </div>
         </main>
 
