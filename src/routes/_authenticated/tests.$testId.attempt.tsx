@@ -58,7 +58,14 @@ type AnswerValue = number | string | boolean | null;
 type Answers = Record<string, AnswerValue>;
 type Marks = Record<string, boolean>;
 
-type Status = "not-visited" | "answered" | "not-answered" | "marked" | "answered-marked";
+type Status =
+  | "not-visited"
+  | "answered"
+  | "not-answered"
+  | "marked"
+  | "answered-marked"
+  | "checked-correct"
+  | "checked-wrong";
 
 function fmt(sec: number) {
   const s = Math.max(0, Math.floor(sec));
