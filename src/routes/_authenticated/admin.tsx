@@ -16,6 +16,8 @@ import { Pencil, Trash2, Plus, Users, BookOpen, Video, IndianRupee, Play } from 
 import { NotesAdmin } from "@/components/NotesAdmin";
 import { NotificationsAdmin } from "@/components/NotificationsAdmin";
 import { TestsAdmin } from "@/components/TestsAdmin";
+import { LectureUploader } from "@/components/LectureUploader";
+import { removeStorageObjects, formatBytes } from "@/lib/lecture-upload";
 
 
 export const Route = createFileRoute("/_authenticated/admin")({ component: AdminPage });
@@ -240,8 +242,22 @@ function LecturesAdmin() {
   });
 
   const del = useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.from("lectures").delete().eq("id", id); if (error) throw error; },
+    mutationFn: async (l: any) => {
+      await removeStorageObjects([l.video_storage_path, l.thumbnail_storage_path]);
+      const { error } = await supabase.from("lectures").delete().eq("id", l.id);
+      if (error) throw error;
+    },
     onSuccess: () => { toast.success("Deleted"); qc.invalidateQueries({ queryKey: ["admin-lectures"] }); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const publish = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const { error } = await supabase.from("lectures").update({ status }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, v) => { toast.success(v.status === "published" ? "Lecture published" : "Lecture unpublished"); qc.invalidateQueries({ queryKey: ["admin-lectures"] }); },
+    onError: (e: any) => toast.error(e.message),
   });
 
   return (
@@ -264,13 +280,21 @@ function LecturesAdmin() {
                 {l.title}
                 {l.is_free && <span className="bg-accent/10 text-accent font-bold px-2 py-0.5 rounded uppercase text-[10px]">Free</span>}
               </p>
-              <p className="text-xs text-muted-foreground">{l.is_live ? "Live" : "Recorded"} • {l.duration_minutes ?? 0} min • {l.materials?.length ?? 0} materials</p>
+              <p className="text-xs text-muted-foreground">
+                {l.is_live ? "Live" : "Recorded"} • {l.duration_minutes ?? 0} min • {l.materials?.length ?? 0} materials
+                {l.file_size ? ` • ${formatBytes(Number(l.file_size))}` : ""}
+                {l.video_storage_path ? " • Uploaded video" : ""}
+              </p>
             </div>
+            <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded ${l.status === "published" ? "bg-accent/10 text-accent" : "bg-muted text-muted-foreground"}`}>{l.status ?? "published"}</span>
+            <Button size="sm" variant={l.status === "published" ? "ghost" : "secondary"} onClick={() => publish.mutate({ id: l.id, status: l.status === "published" ? "draft" : "published" })}>
+              {l.status === "published" ? "Unpublish" : "Publish"}
+            </Button>
             <Link to="/lectures/$lectureId" params={{ lectureId: l.id }}>
               <Button size="sm" variant="outline"><Play className="size-4 mr-1" /> Preview</Button>
             </Link>
             <LectureDialog batchId={batchId} initial={l} onSaved={() => qc.invalidateQueries({ queryKey: ["admin-lectures"] })} trigger={<Button size="sm" variant="ghost"><Pencil className="size-4" /></Button>} />
-            <Button size="sm" variant="ghost" onClick={() => { if (confirm("Delete?")) del.mutate(l.id); }}><Trash2 className="size-4 text-destructive" /></Button>
+            <Button size="sm" variant="ghost" onClick={() => { if (confirm("Delete?")) del.mutate(l); }}><Trash2 className="size-4 text-destructive" /></Button>
           </div>
         ))}
 
@@ -282,7 +306,7 @@ function LecturesAdmin() {
 
 function LectureDialog({ batchId, initial, onSaved, trigger }: any) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<any>({ title: "", description: "", video_url: "", thumbnail_url: "", duration_minutes: 0, order_index: 0, is_live: false, is_free: false, scheduled_at: "", subject_id: "", chapter_id: "" });
+  const [form, setForm] = useState<any>({ title: "", description: "", video_url: "", thumbnail_url: "", duration_minutes: 0, order_index: 0, is_live: false, is_free: false, scheduled_at: "", subject_id: "", chapter_id: "", teacher: "", tags: "", status: "draft", video_storage_path: null, thumbnail_storage_path: null, file_size: null, duration_seconds: null });
   const [materials, setMaterials] = useState<any[]>([]);
   const [newMat, setNewMat] = useState({ title: "", file_url: "", file_type: "pdf" });
 
@@ -303,8 +327,11 @@ function LectureDialog({ batchId, initial, onSaved, trigger }: any) {
         ...initial,
         subject_id: initial.subject_id ?? "",
         chapter_id: initial.chapter_id ?? "",
+        teacher: initial.teacher ?? "",
+        tags: (initial.tags ?? []).join(", "),
+        status: initial.status ?? "published",
         scheduled_at: initial.scheduled_at ? new Date(initial.scheduled_at).toISOString().slice(0, 16) : "",
-      } : { title: "", description: "", video_url: "", thumbnail_url: "", duration_minutes: 0, order_index: 0, is_live: false, is_free: false, scheduled_at: "", subject_id: "", chapter_id: "" });
+      } : { title: "", description: "", video_url: "", thumbnail_url: "", duration_minutes: 0, order_index: 0, is_live: false, is_free: false, scheduled_at: "", subject_id: "", chapter_id: "", teacher: "", tags: "", status: "draft", video_storage_path: null, thumbnail_storage_path: null, file_size: null, duration_seconds: null });
       setMaterials(initial?.materials ?? []);
     }
   }, [open, initial]);
@@ -325,6 +352,13 @@ function LectureDialog({ batchId, initial, onSaved, trigger }: any) {
       scheduled_at: form.scheduled_at ? new Date(form.scheduled_at).toISOString() : null,
       subject_id: form.subject_id || null,
       chapter_id: form.chapter_id || null,
+      teacher: form.teacher || null,
+      tags: String(form.tags || "").split(",").map((t: string) => t.trim()).filter(Boolean),
+      status: form.status || "draft",
+      video_storage_path: form.video_storage_path || null,
+      thumbnail_storage_path: form.thumbnail_storage_path || null,
+      file_size: form.file_size ?? null,
+      duration_seconds: form.duration_seconds ?? null,
     };
     const res = initial
       ? await supabase.from("lectures").update(payload).eq("id", initial.id).select().single()
@@ -376,7 +410,35 @@ function LectureDialog({ batchId, initial, onSaved, trigger }: any) {
           </div>
           <div><Label>Description</Label><Textarea value={form.description ?? ""} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
 
-          <div><Label>Video URL (MP4, YouTube, Vimeo, Google Drive)</Label><Input value={form.video_url ?? ""} onChange={(e) => setForm({ ...form, video_url: e.target.value })} placeholder="https://..." /></div>
+          <LectureUploader
+            batchId={batchId}
+            existingPath={form.video_storage_path}
+            existingSize={form.file_size}
+            existingDuration={form.duration_seconds}
+            onUploaded={(r) => setForm((f: any) => ({
+              ...f,
+              video_storage_path: r.video_storage_path,
+              thumbnail_storage_path: r.thumbnail_storage_path ?? f.thumbnail_storage_path,
+              file_size: r.file_size,
+              duration_seconds: r.duration_seconds,
+              duration_minutes: f.duration_minutes || r.duration_minutes,
+            }))}
+          />
+          <div><Label>Or external video URL (optional)</Label><Input value={form.video_url ?? ""} onChange={(e) => setForm({ ...form, video_url: e.target.value })} placeholder="https://..." /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Teacher name</Label><Input value={form.teacher ?? ""} onChange={(e) => setForm({ ...form, teacher: e.target.value })} /></div>
+            <div><Label>Tags (comma-separated)</Label><Input value={form.tags ?? ""} onChange={(e) => setForm({ ...form, tags: e.target.value })} /></div>
+          </div>
+          <div>
+            <Label>Status</Label>
+            <Select value={form.status ?? "draft"} onValueChange={(v) => setForm({ ...form, status: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="draft">Draft (hidden from students)</SelectItem>
+                <SelectItem value="published">Published</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div><Label>Thumbnail URL</Label><Input value={form.thumbnail_url ?? ""} onChange={(e) => setForm({ ...form, thumbnail_url: e.target.value })} /></div>
           <div className="grid grid-cols-2 gap-3">
             <div><Label>Duration (min)</Label><Input type="number" value={form.duration_minutes ?? 0} onChange={(e) => setForm({ ...form, duration_minutes: e.target.value })} /></div>
@@ -520,7 +582,7 @@ function LiveAdmin() {
               {l.status !== "live" && <Button size="sm" onClick={() => setStatus.mutate({ id: l.id, status: "live" })}>Start Live</Button>}
               {l.status === "live" && <Button size="sm" variant="outline" onClick={() => setStatus.mutate({ id: l.id, status: "ended" })}>End</Button>}
               <LiveClassDialog batches={batches} initial={l} onSaved={() => qc.invalidateQueries({ queryKey: ["admin-live-classes"] })} trigger={<Button size="sm" variant="ghost"><Pencil className="size-4" /></Button>} />
-              <Button size="sm" variant="ghost" onClick={() => { if (confirm("Delete?")) del.mutate(l.id); }}><Trash2 className="size-4 text-destructive" /></Button>
+              <Button size="sm" variant="ghost" onClick={() => { if (confirm("Delete?")) del.mutate(l); }}><Trash2 className="size-4 text-destructive" /></Button>
             </div>
           );
         })}
