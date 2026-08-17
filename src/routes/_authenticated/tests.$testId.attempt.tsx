@@ -78,6 +78,9 @@ function AttemptPage() {
 
   const [answers, setAnswers] = useState<Answers>({});
   const [marked, setMarked] = useState<Marks>({});
+  const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const [reveals, setReveals] = useState<Record<string, Reveal>>({});
+  const [revealing, setRevealing] = useState(false);
   const [visited, setVisited] = useState<Record<string, boolean>>({});
   const [current, setCurrent] = useState(0);
   const [lang, setLang] = useState<"en" | "hi">("en");
