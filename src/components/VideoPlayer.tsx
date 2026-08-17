@@ -57,34 +57,69 @@ export function VideoPlayer({ url, poster, initialPosition = 0, onProgress, onEn
 
   if (source.kind === "file") {
     return (
-      <div className="relative aspect-video bg-black rounded-xl overflow-hidden">
-        {loading && !error && (
-          <div className="absolute inset-0 grid place-items-center bg-black/40 z-10">
-            <Loader2 className="size-8 animate-spin text-white" />
-          </div>
-        )}
-        {error && (
-          <div className="absolute inset-0 grid place-items-center bg-black text-white gap-3 z-10">
-            <AlertTriangle className="size-8" />
-            <p className="text-sm">Failed to load video.</p>
-            <Button size="sm" variant="secondary" onClick={() => setRetryKey((k) => k + 1)}>
-              <RotateCcw className="size-4 mr-1" /> Retry
+      <div className="space-y-2">
+        <div className="relative aspect-video bg-black rounded-xl overflow-hidden">
+          {loading && !error && (
+            <div className="absolute inset-0 grid place-items-center bg-black/40 z-10">
+              <Loader2 className="size-8 animate-spin text-white" />
+            </div>
+          )}
+          {error && (
+            <div className="absolute inset-0 grid place-items-center bg-black text-white gap-3 z-10">
+              <AlertTriangle className="size-8" />
+              <p className="text-sm">Failed to load video.</p>
+              <Button size="sm" variant="secondary" onClick={() => setRetryKey((k) => k + 1)}>
+                <RotateCcw className="size-4 mr-1" /> Retry
+              </Button>
+            </div>
+          )}
+          <video
+            key={retryKey}
+            ref={videoRef}
+            src={source.url}
+            poster={poster ?? undefined}
+            controls
+            controlsList="nodownload"
+            playsInline
+            className="w-full h-full"
+          />
+        </div>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs text-muted-foreground mr-1">Speed</span>
+          {SPEEDS.map((s) => (
+            <Button
+              key={s}
+              size="sm"
+              variant={rate === s ? "default" : "outline"}
+              className="h-7 px-2 text-xs"
+              onClick={() => {
+                setRate(s);
+                if (videoRef.current) videoRef.current.playbackRate = s;
+              }}
+            >
+              {s}x
             </Button>
-          </div>
-        )}
-        <video
-          key={retryKey}
-          ref={videoRef}
-          src={source.url}
-          poster={poster ?? undefined}
-          controls
-          controlsList="nodownload"
-          playsInline
-          className="w-full h-full"
-        />
+          ))}
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 px-2 text-xs ml-auto"
+            onClick={async () => {
+              const v = videoRef.current as any;
+              if (!v) return;
+              try {
+                if (document.pictureInPictureElement) await (document as any).exitPictureInPicture();
+                else await v.requestPictureInPicture?.();
+              } catch { /* PiP unsupported */ }
+            }}
+          >
+            <PictureInPicture2 className="size-3.5 mr-1" /> PiP
+          </Button>
+        </div>
       </div>
     );
   }
+
 
   // YouTube / Vimeo / Google Drive — iframe embeds (their players include all standard controls)
   return (
