@@ -565,7 +565,7 @@ export const saveAnswers = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: attempt } = await supabaseAdmin
       .from("test_attempts")
-      .select("id, answers, marked, submitted_at, expires_at")
+      .select("id, answers, marked, checked, submitted_at, expires_at")
       .eq("test_id", data.testId)
       .eq("student_id", userId)
       .is("submitted_at", null)
@@ -575,7 +575,11 @@ export const saveAnswers = createServerFn({ method: "POST" })
     if (!attempt) throw new Error("No active attempt");
     if (attempt.submitted_at) return { ok: false, submitted: true };
 
-    const answers = { ...((attempt.answers ?? {}) as Record<string, AnswerValue>), ...data.answers };
+    const checked = (attempt.checked ?? {}) as Record<string, boolean>;
+    // Revealed questions are locked — ignore any late client writes for them.
+    const incoming: Record<string, AnswerValue> = {};
+    for (const [k, v] of Object.entries(data.answers)) if (!checked[k]) incoming[k] = v;
+    const answers = { ...((attempt.answers ?? {}) as Record<string, AnswerValue>), ...incoming };
     const marked = { ...((attempt.marked ?? {}) as Record<string, boolean>), ...data.marked };
     const { error } = await supabaseAdmin
       .from("test_attempts")
