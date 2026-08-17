@@ -392,9 +392,10 @@ export const getAttemptState = createServerFn({ method: "POST" })
     const { data: rows } = await supabaseAdmin
       .from("test_questions")
       .select(
-        "id, type, question_en, question_hi, image_url, options_en, options_hi, positive_marks, negative_marks",
+        "id, type, question_en, question_hi, image_url, options_en, options_hi, positive_marks, negative_marks, correct_option, correct_numeric, correct_bool, solution_en, solution_hi",
       )
       .eq("test_id", data.testId);
+
 
     const byId = new Map((rows ?? []).map((r) => [r.id, r]));
     const questions: SafeQuestion[] = attempt.question_order
