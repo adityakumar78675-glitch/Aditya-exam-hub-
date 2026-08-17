@@ -82,6 +82,7 @@ function AttemptPage() {
   const fetchState = useServerFn(getAttemptState);
   const persist = useServerFn(saveAnswers);
   const doSubmit = useServerFn(submitTest);
+  const doReveal = useServerFn(revealAnswer);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["attempt", testId],
