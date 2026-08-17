@@ -58,6 +58,17 @@ export type SafeQuestion = {
 
 type AnswerValue = number | string | boolean | null;
 
+/** Payload sent only after a student legitimately reveals an answer. */
+export type Reveal = {
+  verdict: boolean | null;
+  correctIndex: number | null;
+  correctNumeric: number | null;
+  correctBool: boolean | null;
+  solution_en: string | null;
+  solution_hi: string | null;
+};
+
+
 export type SolutionItem = {
   number: number;
   id: string;
