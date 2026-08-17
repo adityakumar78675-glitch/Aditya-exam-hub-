@@ -373,6 +373,21 @@ function AttemptPage() {
         <LegendRow className="bg-accent ring-2 ring-primary" label="Answered & Marked" />
         <LegendRow className="bg-muted border border-border" label="Not Visited" />
       </div>
+      {canShowAnswer && (counts.correct > 0 || counts.wrong > 0) && (
+        <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3 text-xs">
+          <p className="font-semibold text-foreground">Live preview</p>
+          <p className="mt-1 text-muted-foreground">
+            Correct: {counts.correct} · Wrong: {counts.wrong} · Unattempted: {counts.unanswered}
+          </p>
+          <p className="text-muted-foreground">
+            Preview score: <span className="font-semibold tabular-nums text-foreground">{liveScore}</span>
+          </p>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            This is only a preview of checked questions — the final score is calculated after you submit.
+          </p>
+        </div>
+      )}
+
     </div>
   );
 
