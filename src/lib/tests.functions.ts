@@ -369,7 +369,9 @@ export const getAttemptState = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { data: test } = await supabase
       .from("tests")
-      .select("id, title, subject, duration_minutes, languages, positive_marks, negative_marks, randomize_options")
+      .select(
+        "id, title, subject, duration_minutes, languages, positive_marks, negative_marks, randomize_options, allow_show_answer, practice_mode",
+      )
       .eq("id", data.testId)
       .maybeSingle();
     if (!test) throw new Error("Test not available");
