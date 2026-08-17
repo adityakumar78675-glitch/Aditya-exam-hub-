@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2, AlertTriangle, RotateCcw } from "lucide-react";
+import { Loader2, AlertTriangle, RotateCcw, PictureInPicture2 } from "lucide-react";
 import { parseVideoUrl } from "@/lib/video";
 import { Button } from "@/components/ui/button";
+
+const SPEEDS = [0.5, 1, 1.25, 1.5, 2];
 
 type Props = {
   url?: string | null;
@@ -17,6 +19,7 @@ export function VideoPlayer({ url, poster, initialPosition = 0, onProgress, onEn
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
+  const [rate, setRate] = useState(1);
 
   useEffect(() => {
     setLoading(true);
