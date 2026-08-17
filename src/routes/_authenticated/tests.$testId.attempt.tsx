@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Clock, Grid3X3, Monitor, X, ZoomIn, WifiOff } from "lucide-react";
+import { Clock, Grid3X3, Monitor, X, ZoomIn, WifiOff, Eye } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/tests/$testId/attempt")({
   ssr: false,
