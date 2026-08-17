@@ -645,13 +645,25 @@ function AttemptPage() {
             </SheetContent>
           </Sheet>
 
-          <Button variant="outline" size="sm" onClick={clearAnswer}>
+          <Button variant="outline" size="sm" onClick={clearAnswer} disabled={isChecked}>
             Clear
           </Button>
           <Button variant={marked[q.id] ? "default" : "outline"} size="sm" onClick={toggleMark} className="hidden sm:inline-flex">
             {marked[q.id] ? "Unmark" : "Mark for Review"}
           </Button>
+          {canShowAnswer && (
+            <Button
+              variant={isChecked ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => void showAnswer()}
+              disabled={isChecked || !answeredCurrent || revealing}
+            >
+              <Eye className="size-4 mr-1" />
+              {isChecked ? "Answer Checked" : revealing ? "Checking..." : "Show Answer"}
+            </Button>
+          )}
           <div className="flex-1" />
+
           <Button variant="outline" size="sm" onClick={() => go(current - 1)} disabled={current === 0}>
             Previous
           </Button>
