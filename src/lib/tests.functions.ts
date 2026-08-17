@@ -379,7 +379,7 @@ export const getAttemptState = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: attempt } = await supabaseAdmin
       .from("test_attempts")
-      .select("id, attempt_number, question_order, answers, marked, started_at, expires_at, submitted_at")
+      .select("id, attempt_number, question_order, answers, marked, checked, started_at, expires_at, submitted_at")
       .eq("test_id", data.testId)
       .eq("student_id", userId)
       .is("submitted_at", null)
