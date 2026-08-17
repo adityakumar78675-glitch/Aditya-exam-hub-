@@ -360,7 +360,14 @@ function AttemptPage() {
         ))}
       </div>
       <div className="mt-5 space-y-2 text-xs">
+        {canShowAnswer && (
+          <>
+            <LegendRow className="bg-emerald-600" label={`Checked correct (${counts.correct})`} />
+            <LegendRow className="bg-destructive" label={`Checked wrong (${counts.wrong})`} />
+          </>
+        )}
         <LegendRow className="bg-primary" label={`Attempted (${counts.answered})`} />
+
         <LegendRow className="bg-destructive/40" label={`Unattempted (${counts.unanswered})`} />
         <LegendRow className="bg-accent" label={`Marked for Review (${counts.marked})`} />
         <LegendRow className="bg-accent ring-2 ring-primary" label="Answered & Marked" />
