@@ -393,7 +393,7 @@ async function drawQuestion(
   pdf.text(`Q${s.number}`, M + 17, y + 20, { align: "center" });
   setText(pdf, C.ink);
   pdf.setFontSize(8);
-  pdf.text(`+${s.positive_marks} / -${s.negative_marks}`, A4_W - M - 92, y + 20, { align: "right" });
+  pdf.text(`+${s.positive_marks} / -${s.negative_marks}`, A4_W - M - 104, y + 20, { align: "right" });
   setFill(pdf, pale);
   setDraw(pdf, tone);
   pdf.roundedRect(A4_W - M - 96, y + 8, 88, 19, 4, 4, "FD");
