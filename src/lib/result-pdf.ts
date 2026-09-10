@@ -537,5 +537,8 @@ export async function generateResultPdf(opts: {
   addFooters(pdf, opts.meta);
   const blob = pdf.output("blob");
   if (!blob.size) throw new Error("The generated PDF was empty");
-  downloadBlob(blob, pdfFileName(opts.kind, opts.meta.testTitle));
+  const filename = pdfFileName(opts.kind, opts.meta.testTitle);
+  console.info("[result-pdf] generation completed", { filename, bytes: blob.size, pages: pdf.getNumberOfPages() });
+  downloadBlob(blob, filename);
+  console.info("[result-pdf] download started", filename);
 }
