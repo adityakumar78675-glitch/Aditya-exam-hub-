@@ -501,10 +501,8 @@ async function drawQuestion(
       setText(pdf, isCorrect || isYours ? C.white : C.ink);
       pdf.setFontSize(8.5);
       pdf.text(String.fromCharCode(65 + i), M + 31, y + h / 2 + 3, { align: "center" });
-      setText(pdf, C.ink);
       const optionLines = lines(pdf, option, BODY_W - 116, 9.2);
-      pdf.setFontSize(9.2);
-      pdf.text(optionLines, M + 45, y + 10, { lineHeightFactor: 1.25, baseline: "top" });
+      drawLines(pdf, optionLines, M + 45, y + 18.5, 11.5, 9.2, C.ink, BODY_W - 116);
       if (isCorrect || isYours) {
         pdf.setFontSize(7.3);
         setText(pdf, isCorrect ? C.green : C.red);
