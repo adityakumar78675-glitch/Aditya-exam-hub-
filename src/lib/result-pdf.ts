@@ -516,11 +516,9 @@ async function drawQuestion(
   ensure(36);
   const your = plainText(answerText(s, info.opts, s.your_answer));
   const correct = plainText(correctText(s, info.opts));
-  pdf.setFontSize(8.5);
-  setText(pdf, status === "correct" ? C.green : status === "incorrect" ? C.red : C.muted);
-  pdf.text(`Your Answer: ${your}`, M + 17, y + 12, { maxWidth: BODY_W / 2 - 20 });
-  setText(pdf, C.green);
-  pdf.text(`Correct Answer: ${correct}`, M + BODY_W / 2, y + 12, { maxWidth: BODY_W / 2 - 18 });
+  const yourTone = status === "correct" ? C.green : status === "incorrect" ? C.red : C.muted;
+  drawLine(pdf, `Your Answer: ${your}`, M + 17, y + 12, 8.5, yourTone, BODY_W / 2 - 20);
+  drawLine(pdf, `Correct Answer: ${correct}`, M + BODY_W / 2, y + 12, 8.5, C.green, BODY_W / 2 - 18);
   y += 28;
 
   const explanationLines = lines(pdf, info.explanation, BODY_W - 52, 8.8);
