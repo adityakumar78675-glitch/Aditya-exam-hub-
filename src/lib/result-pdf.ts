@@ -1,5 +1,5 @@
 import type { jsPDF as JsPdfType } from "jspdf";
-import pdfFontUrl from "@/assets/fonts/NotoSansDevanagari-Regular.ttf?url";
+import pdfFontUrl from "@/assets/fonts/NotoSans-Regular.ttf?url";
 
 export type PdfSolution = {
   number: number;
@@ -115,6 +115,20 @@ function plainText(input: string | null | undefined): string {
     .replace(/`([^`]+)`/g, "$1")
     .replace(/<[^>]*>/g, "")
     .replace(/\r/g, "")
+    .replace(/[\u2713\u2714]/g, "OK")
+    .replace(/[\u2717\u2718\u2715]/g, "x")
+    .replace(/\u221A/g, "sqrt")
+    .replace(/[\u2192\u21D2]/g, "->")
+    .replace(/[\u2190\u21D0]/g, "<-")
+    .replace(/\u2264/g, "<=")
+    .replace(/\u2265/g, ">=")
+    .replace(/\u2260/g, "!=")
+    .replace(/\u2248/g, "~=")
+    .replace(/\u221E/g, "infinity")
+    .replace(/[\u2022\u25CB\u25CF\u25A0\u25A1]/g, "-")
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/[\u2013\u2014]/g, "-")
     .trim();
 }
 
@@ -173,6 +187,76 @@ function drawLogo(pdf: JsPdfType, x: number, y: number, scale = 1) {
   pdf.triangle(x - 2 * scale, y + 3 * scale, x + 10 * scale, y - 2 * scale, x + 22 * scale, y + 3 * scale, "F");
   setFill(pdf, C.blue);
   pdf.rect(x + 4 * scale, y + 14 * scale, 12 * scale, 3 * scale, "F");
+}
+
+const DEVANAGARI = /[\u0900-\u097F]/;
+
+/** jsPDF cannot shape Devanagari, so Hindi lines are painted through canvas (which shapes correctly). */
+function shapedLineImage(text: string, sizePt: number, color: RGB) {
+  const S = 4;
+  const canvas = document.createElement("canvas");
+  const measure = canvas.getContext("2d");
+  if (!measure) return null;
+  const font = `${sizePt * S}px "Noto Sans Devanagari", "Nirmala UI", "Mangal", sans-serif`;
+  measure.font = font;
+  const textW = Math.ceil(measure.measureText(text).width) + S * 2;
+  const boxH = Math.ceil(sizePt * S * 1.55);
+  canvas.width = Math.max(4, textW);
+  canvas.height = boxH;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.font = font;
+  ctx.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText(text, S, sizePt * S * 1.12);
+  return { data: canvas.toDataURL("image/png"), w: canvas.width / S, h: boxH / S, ascent: sizePt * 1.12 };
+}
+
+function drawLine(pdf: JsPdfType, text: string, x: number, baselineY: number, size: number, color: RGB, maxWidth: number) {
+  if (!DEVANAGARI.test(text)) {
+    pdf.setFontSize(size);
+    setText(pdf, color);
+    pdf.text(text, x, baselineY, { maxWidth });
+    return;
+  }
+  const image = shapedLineImage(text, size, color);
+  if (!image) {
+    pdf.setFontSize(size);
+    setText(pdf, color);
+    pdf.text(text, x, baselineY, { maxWidth });
+    return;
+  }
+  const scale = image.w > maxWidth ? maxWidth / image.w : 1;
+  pdf.addImage(image.data, "PNG", x, baselineY - image.ascent * scale, image.w * scale, image.h * scale, undefined, "FAST");
+}
+
+function drawLines(
+  pdf: JsPdfType,
+  textLines: string[],
+  x: number,
+  firstBaseline: number,
+  lineHeight: number,
+  size: number,
+  color: RGB,
+  maxWidth: number,
+) {
+  textLines.forEach((line, i) => drawLine(pdf, line, x, firstBaseline + i * lineHeight, size, color, maxWidth));
+}
+
+function drawStatusMark(pdf: JsPdfType, status: Status, cx: number, cy: number, color: RGB) {
+  setDraw(pdf, color);
+  pdf.setLineWidth(1.2);
+  if (status === "correct") {
+    pdf.line(cx - 3.2, cy, cx - 1, cy + 2.6);
+    pdf.line(cx - 1, cy + 2.6, cx + 3.4, cy - 3);
+  } else if (status === "incorrect") {
+    pdf.line(cx - 3, cy - 3, cx + 3, cy + 3);
+    pdf.line(cx + 3, cy - 3, cx - 3, cy + 3);
+  } else {
+    pdf.circle(cx, cy, 3, "S");
+  }
+  pdf.setLineWidth(0.8);
 }
 
 function kindLabel(kind: PdfKind) {
@@ -364,20 +448,19 @@ async function drawQuestion(
   pdf.text(`Q${s.number}`, M + 17, y + 20, { align: "center" });
   setText(pdf, C.ink);
   pdf.setFontSize(8);
-  pdf.text(`+${s.positive_marks} / -${s.negative_marks}`, A4_W - M - 92, y + 20, { align: "right" });
+  pdf.text(`+${s.positive_marks} / -${s.negative_marks}`, A4_W - M - 104, y + 20, { align: "right" });
   setFill(pdf, pale);
   setDraw(pdf, tone);
-  pdf.roundedRect(A4_W - M - 84, y + 8, 76, 19, 4, 4, "FD");
+  pdf.roundedRect(A4_W - M - 96, y + 8, 88, 19, 4, 4, "FD");
+  drawStatusMark(pdf, status, A4_W - M - 85, y + 17.5, tone);
   setText(pdf, tone);
   pdf.setFontSize(8);
-  const statusLabel = status === "correct" ? "✓  CORRECT" : status === "incorrect" ? "×  WRONG" : "○  UNATTEMPTED";
+  const statusLabel = status === "correct" ? "CORRECT" : status === "incorrect" ? "WRONG" : "UNATTEMPTED";
   pdf.text(statusLabel, A4_W - M - 46, y + 20.5, { align: "center" });
   y += 42;
 
   const qLines = lines(pdf, info.question, BODY_W - 34, 10.5);
-  setText(pdf, C.ink);
-  pdf.setFontSize(10.5);
-  pdf.text(qLines, M + 17, y, { lineHeightFactor: 1.3 });
+  drawLines(pdf, qLines, M + 17, y, 14, 10.5, C.ink, BODY_W - 34);
   y += qLines.length * 14 + 7;
 
   if (s.image_url) {
@@ -418,10 +501,8 @@ async function drawQuestion(
       setText(pdf, isCorrect || isYours ? C.white : C.ink);
       pdf.setFontSize(8.5);
       pdf.text(String.fromCharCode(65 + i), M + 31, y + h / 2 + 3, { align: "center" });
-      setText(pdf, C.ink);
       const optionLines = lines(pdf, option, BODY_W - 116, 9.2);
-      pdf.setFontSize(9.2);
-      pdf.text(optionLines, M + 45, y + 10, { lineHeightFactor: 1.25, baseline: "top" });
+      drawLines(pdf, optionLines, M + 45, y + 18.5, 11.5, 9.2, C.ink, BODY_W - 116);
       if (isCorrect || isYours) {
         pdf.setFontSize(7.3);
         setText(pdf, isCorrect ? C.green : C.red);
@@ -435,11 +516,9 @@ async function drawQuestion(
   ensure(36);
   const your = plainText(answerText(s, info.opts, s.your_answer));
   const correct = plainText(correctText(s, info.opts));
-  pdf.setFontSize(8.5);
-  setText(pdf, status === "correct" ? C.green : status === "incorrect" ? C.red : C.muted);
-  pdf.text(`Your Answer: ${your}`, M + 17, y + 12, { maxWidth: BODY_W / 2 - 20 });
-  setText(pdf, C.green);
-  pdf.text(`Correct Answer: ${correct}`, M + BODY_W / 2, y + 12, { maxWidth: BODY_W / 2 - 18 });
+  const yourTone = status === "correct" ? C.green : status === "incorrect" ? C.red : C.muted;
+  drawLine(pdf, `Your Answer: ${your}`, M + 17, y + 12, 8.5, yourTone, BODY_W / 2 - 20);
+  drawLine(pdf, `Correct Answer: ${correct}`, M + BODY_W / 2, y + 12, 8.5, C.green, BODY_W / 2 - 18);
   y += 28;
 
   const explanationLines = lines(pdf, info.explanation, BODY_W - 52, 8.8);
@@ -466,9 +545,7 @@ async function drawQuestion(
     setText(pdf, C.blue);
     pdf.setFontSize(8.3);
     pdf.text(i === 0 ? "EXPLANATION" : "EXPLANATION (CONTINUED)", M + 41, y + 17);
-    setText(pdf, C.ink);
-    pdf.setFontSize(8.8);
-    pdf.text(chunk, M + 26, y + 31, { lineHeightFactor: 1.3 });
+    drawLines(pdf, chunk, M + 26, y + 31, 12, 8.8, C.ink, BODY_W - 52);
     y += h + 6;
   }
 
@@ -511,6 +588,12 @@ export async function generateResultPdf(opts: {
   lang: "en" | "hi";
   onProgress?: (done: number, total: number) => void;
 }): Promise<void> {
+  console.info("[result-pdf] generator v2 (native jsPDF) called", {
+    kind: opts.kind,
+    questions: opts.items.length,
+    test: opts.meta.testTitle,
+    attemptNumber: opts.meta.attemptNumber,
+  });
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ unit: "pt", format: "a4", compress: true, putOnlyUsedFonts: true });
   await installFont(pdf);
@@ -531,5 +614,8 @@ export async function generateResultPdf(opts: {
   addFooters(pdf, opts.meta);
   const blob = pdf.output("blob");
   if (!blob.size) throw new Error("The generated PDF was empty");
-  downloadBlob(blob, pdfFileName(opts.kind, opts.meta.testTitle));
+  const filename = pdfFileName(opts.kind, opts.meta.testTitle);
+  console.info("[result-pdf] generation completed", { filename, bytes: blob.size, pages: pdf.getNumberOfPages() });
+  downloadBlob(blob, filename);
+  console.info("[result-pdf] download started", filename);
 }
