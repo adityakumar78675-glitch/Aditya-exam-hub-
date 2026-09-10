@@ -381,10 +381,11 @@ async function drawQuestion(
   pdf.text(`+${s.positive_marks} / -${s.negative_marks}`, A4_W - M - 92, y + 20, { align: "right" });
   setFill(pdf, pale);
   setDraw(pdf, tone);
-  pdf.roundedRect(A4_W - M - 84, y + 8, 76, 19, 4, 4, "FD");
+  pdf.roundedRect(A4_W - M - 96, y + 8, 88, 19, 4, 4, "FD");
+  drawStatusMark(pdf, status, A4_W - M - 85, y + 17.5, tone);
   setText(pdf, tone);
   pdf.setFontSize(8);
-  const statusLabel = status === "correct" ? "✓  CORRECT" : status === "incorrect" ? "×  WRONG" : "○  UNATTEMPTED";
+  const statusLabel = status === "correct" ? "CORRECT" : status === "incorrect" ? "WRONG" : "UNATTEMPTED";
   pdf.text(statusLabel, A4_W - M - 46, y + 20.5, { align: "center" });
   y += 42;
 
