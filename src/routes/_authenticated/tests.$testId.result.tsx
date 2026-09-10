@@ -208,6 +208,7 @@ function ResultPage() {
               meta={{
                 testTitle: test.title,
                 subject: test.subject ?? null,
+                chapter: null,
                 studentName,
                 date: attempt.submitted_at
                   ? new Date(attempt.submitted_at).toLocaleDateString()
