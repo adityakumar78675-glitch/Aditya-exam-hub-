@@ -545,9 +545,7 @@ async function drawQuestion(
     setText(pdf, C.blue);
     pdf.setFontSize(8.3);
     pdf.text(i === 0 ? "EXPLANATION" : "EXPLANATION (CONTINUED)", M + 41, y + 17);
-    setText(pdf, C.ink);
-    pdf.setFontSize(8.8);
-    pdf.text(chunk, M + 26, y + 31, { lineHeightFactor: 1.3 });
+    drawLines(pdf, chunk, M + 26, y + 31, 12, 8.8, C.ink, BODY_W - 52);
     y += h + 6;
   }
 
