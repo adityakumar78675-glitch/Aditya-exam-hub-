@@ -511,6 +511,12 @@ export async function generateResultPdf(opts: {
   lang: "en" | "hi";
   onProgress?: (done: number, total: number) => void;
 }): Promise<void> {
+  console.info("[result-pdf] generator v2 (native jsPDF) called", {
+    kind: opts.kind,
+    questions: opts.items.length,
+    test: opts.meta.testTitle,
+    attemptNumber: opts.meta.attemptNumber,
+  });
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ unit: "pt", format: "a4", compress: true, putOnlyUsedFonts: true });
   await installFont(pdf);
