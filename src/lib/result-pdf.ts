@@ -189,6 +189,21 @@ function drawLogo(pdf: JsPdfType, x: number, y: number, scale = 1) {
   pdf.rect(x + 4 * scale, y + 14 * scale, 12 * scale, 3 * scale, "F");
 }
 
+function drawStatusMark(pdf: JsPdfType, status: Status, cx: number, cy: number, color: RGB) {
+  setDraw(pdf, color);
+  pdf.setLineWidth(1.2);
+  if (status === "correct") {
+    pdf.line(cx - 3.2, cy, cx - 1, cy + 2.6);
+    pdf.line(cx - 1, cy + 2.6, cx + 3.4, cy - 3);
+  } else if (status === "incorrect") {
+    pdf.line(cx - 3, cy - 3, cx + 3, cy + 3);
+    pdf.line(cx + 3, cy - 3, cx - 3, cy + 3);
+  } else {
+    pdf.circle(cx, cy, 3, "S");
+  }
+  pdf.setLineWidth(0.8);
+}
+
 function kindLabel(kind: PdfKind) {
   return kind === "wrong" ? "WRONG ANSWERS" : kind === "correct" ? "CORRECT ANSWERS" : "ALL ANSWERS";
 }
