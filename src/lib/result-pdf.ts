@@ -189,6 +189,61 @@ function drawLogo(pdf: JsPdfType, x: number, y: number, scale = 1) {
   pdf.rect(x + 4 * scale, y + 14 * scale, 12 * scale, 3 * scale, "F");
 }
 
+const DEVANAGARI = /[\u0900-\u097F]/;
+
+/** jsPDF cannot shape Devanagari, so Hindi lines are painted through canvas (which shapes correctly). */
+function shapedLineImage(text: string, sizePt: number, color: RGB) {
+  const S = 4;
+  const canvas = document.createElement("canvas");
+  const measure = canvas.getContext("2d");
+  if (!measure) return null;
+  const font = `${sizePt * S}px "Noto Sans Devanagari", "Nirmala UI", "Mangal", sans-serif`;
+  measure.font = font;
+  const textW = Math.ceil(measure.measureText(text).width) + S * 2;
+  const boxH = Math.ceil(sizePt * S * 1.55);
+  canvas.width = Math.max(4, textW);
+  canvas.height = boxH;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.font = font;
+  ctx.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText(text, S, sizePt * S * 1.12);
+  return { data: canvas.toDataURL("image/png"), w: canvas.width / S, h: boxH / S, ascent: sizePt * 1.12 };
+}
+
+function drawLine(pdf: JsPdfType, text: string, x: number, baselineY: number, size: number, color: RGB, maxWidth: number) {
+  if (!DEVANAGARI.test(text)) {
+    pdf.setFontSize(size);
+    setText(pdf, color);
+    pdf.text(text, x, baselineY, { maxWidth });
+    return;
+  }
+  const image = shapedLineImage(text, size, color);
+  if (!image) {
+    pdf.setFontSize(size);
+    setText(pdf, color);
+    pdf.text(text, x, baselineY, { maxWidth });
+    return;
+  }
+  const scale = image.w > maxWidth ? maxWidth / image.w : 1;
+  pdf.addImage(image.data, "PNG", x, baselineY - image.ascent * scale, image.w * scale, image.h * scale, undefined, "FAST");
+}
+
+function drawLines(
+  pdf: JsPdfType,
+  textLines: string[],
+  x: number,
+  firstBaseline: number,
+  lineHeight: number,
+  size: number,
+  color: RGB,
+  maxWidth: number,
+) {
+  textLines.forEach((line, i) => drawLine(pdf, line, x, firstBaseline + i * lineHeight, size, color, maxWidth));
+}
+
 function drawStatusMark(pdf: JsPdfType, status: Status, cx: number, cy: number, color: RGB) {
   setDraw(pdf, color);
   pdf.setLineWidth(1.2);
