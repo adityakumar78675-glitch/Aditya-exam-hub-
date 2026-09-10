@@ -1,5 +1,5 @@
 import type { jsPDF as JsPdfType } from "jspdf";
-import pdfFontUrl from "@/assets/fonts/NotoSansDevanagari-Regular.ttf?url";
+import pdfFontUrl from "@/assets/fonts/NotoSans-Regular.ttf?url";
 
 export type PdfSolution = {
   number: number;
