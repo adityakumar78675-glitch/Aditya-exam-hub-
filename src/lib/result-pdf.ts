@@ -460,9 +460,7 @@ async function drawQuestion(
   y += 42;
 
   const qLines = lines(pdf, info.question, BODY_W - 34, 10.5);
-  setText(pdf, C.ink);
-  pdf.setFontSize(10.5);
-  pdf.text(qLines, M + 17, y, { lineHeightFactor: 1.3 });
+  drawLines(pdf, qLines, M + 17, y, 14, 10.5, C.ink, BODY_W - 34);
   y += qLines.length * 14 + 7;
 
   if (s.image_url) {
