@@ -300,6 +300,7 @@ export async function startResumableMovieUpload(
   let finished = false;
   let forceAuthRefresh = false;
   let authRecoveryAttempts = 0;
+  let lastAccessToken = initialSession.access_token;
 
   const upload = new tus.Upload(file, {
     endpoint: uploadEndpoint,
@@ -319,9 +320,12 @@ export async function startResumableMovieUpload(
     // Every TUS request receives the current user's token. Authentication failures
     // force a refresh before the request is retried; stale tokens are never reused.
     onBeforeRequest: async (req) => {
-      const session = await getFreshSession(forceAuthRefresh);
-      forceAuthRefresh = false;
-      req.setHeader("Authorization", `Bearer ${session.access_token}`);
+      if (forceAuthRefresh) {
+        const refreshedSession = await getFreshSession(true);
+        lastAccessToken = refreshedSession.access_token;
+        forceAuthRefresh = false;
+      }
+      req.setHeader("Authorization", `Bearer ${lastAccessToken}`);
       req.setHeader("x-upsert", "true");
     },
     onShouldRetry: (err: any, retryAttempt: number) => {
