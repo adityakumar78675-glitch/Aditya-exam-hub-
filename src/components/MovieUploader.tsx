@@ -151,16 +151,26 @@ export function MovieUploader({ movieKey, existingPath, existingSize, onUploaded
           persist({ status: s });
         },
         onProgress: (sent, tot) => {
-          setUploaded(sent);
-          setTotal(tot);
           meterRef.current.push(sent);
-          const rate = meterRef.current.rate();
-          if (rate > 0) {
-            setSpeed(rate);
-            setEta((tot - sent) / rate);
+          const now = Date.now();
+          // Throttle React renders: storage fires progress events continuously.
+          if (now - lastUiRef.current >= 300 || sent >= tot) {
+            lastUiRef.current = now;
+            setUploaded(sent);
+            setTotal(tot);
+            const rate = meterRef.current.rate();
+            if (rate > 0) {
+              setSpeed(rate);
+              setEta((tot - sent) / rate);
+            }
           }
-          persist({ uploadedBytes: sent });
+          if (now - lastPersistRef.current >= 3000 || sent >= tot) {
+            lastPersistRef.current = now;
+            persist({ uploadedBytes: sent });
+          }
         },
+        onDiagnostics: (d) => setDiag(d),
+
         onSuccess: async (storagePath) => {
           setStatus("processing");
           setNotice("Verifying uploaded file…");
