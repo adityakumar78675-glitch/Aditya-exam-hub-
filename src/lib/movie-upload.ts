@@ -306,7 +306,10 @@ export async function startResumableMovieUpload(
     endpoint: uploadEndpoint,
     // Exponential backoff — a temporary drop never kills the whole upload.
     retryDelays: [0, 1000, 3000, 7000, 15000, 30000, 45000, 60000, 60000, 60000],
-    headers: { Authorization: `Bearer ${initialSession.access_token}`, "x-upsert": "true" },
+    // Authorization is attached exactly once in onBeforeRequest. Supplying it
+    // here as well makes tus-js-client concatenate two Bearer values, producing
+    // an invalid compact JWS at the storage gateway.
+    headers: { "x-upsert": "true" },
     // Keep the session-creation POST bodyless. Sending the first 6 MB chunk with
     // that request is rejected by this storage gateway before JWT verification.
     // The file still uploads in resumable 6 MB PATCH chunks immediately after.
