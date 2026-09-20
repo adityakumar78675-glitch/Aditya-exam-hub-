@@ -81,6 +81,8 @@ export function MovieUploader({ movieKey, existingPath, existingSize, onUploaded
   const [donePath, setDonePath] = useState<string | null>(existingPath ?? null);
   const [verified, setVerified] = useState(!!existingPath);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [diag, setDiag] = useState<UploadDiagnostics | null>(null);
+
 
   // Recover a previously interrupted session for this movie after a refresh/remount.
   const [recovered, setRecovered] = useState<ReturnType<typeof loadSession>>(null);
