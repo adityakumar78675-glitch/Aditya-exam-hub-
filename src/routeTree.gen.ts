@@ -9,45 +9,39 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SignupRouteImport } from './routes/signup'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
-import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ApiChatRouteImport } from './routes/api/chat'
-import { Route as AuthenticatedTestsRouteImport } from './routes/_authenticated/tests'
-import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
-import { Route as AuthenticatedNotesRouteImport } from './routes/_authenticated/notes'
-import { Route as AuthenticatedLiveRouteImport } from './routes/_authenticated/live'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedCommunityRouteImport } from './routes/_authenticated/community'
-import { Route as AuthenticatedBatchesRouteImport } from './routes/_authenticated/batches'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as SignupRouteImport } from './routes/signup'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
-import { Route as AuthenticatedTestsIndexRouteImport } from './routes/_authenticated/tests.index'
-import { Route as AuthenticatedMoviesIndexRouteImport } from './routes/_authenticated/movies.index'
-import { Route as ApiPublicInitAdminRouteImport } from './routes/api/public/init-admin'
-import { Route as AuthenticatedTestsTestIdRouteImport } from './routes/_authenticated/tests.$testId'
-import { Route as AuthenticatedMoviesMovieIdRouteImport } from './routes/_authenticated/movies.$movieId'
-import { Route as AuthenticatedLecturesLectureIdRouteImport } from './routes/_authenticated/lectures.$lectureId'
+import { Route as AuthenticatedBatchesRouteImport } from './routes/_authenticated/batches'
+import { Route as AuthenticatedCommunityRouteImport } from './routes/_authenticated/community'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedLiveRouteImport } from './routes/_authenticated/live'
+import { Route as AuthenticatedNotesRouteImport } from './routes/_authenticated/notes'
+import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
+import { Route as AuthenticatedTestsRouteImport } from './routes/_authenticated/tests'
+import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AuthenticatedBatchesBatchIdRouteImport } from './routes/_authenticated/batches.$batchId'
+import { Route as AuthenticatedLecturesLectureIdRouteImport } from './routes/_authenticated/lectures.$lectureId'
+import { Route as AuthenticatedMoviesIndexRouteImport } from './routes/_authenticated/movies.index'
+import { Route as AuthenticatedMoviesMovieIdRouteImport } from './routes/_authenticated/movies.$movieId'
+import { Route as AuthenticatedTestsIndexRouteImport } from './routes/_authenticated/tests.index'
+import { Route as AuthenticatedTestsTestIdRouteImport } from './routes/_authenticated/tests.$testId'
+import { Route as ApiPublicInitAdminRouteImport } from './routes/api/public/init-admin'
 import { Route as AuthenticatedTestsTestIdIndexRouteImport } from './routes/_authenticated/tests.$testId.index'
-import { Route as AuthenticatedTestsTestIdResultRouteImport } from './routes/_authenticated/tests.$testId.result'
 import { Route as AuthenticatedTestsTestIdAttemptRouteImport } from './routes/_authenticated/tests.$testId.attempt'
+import { Route as AuthenticatedTestsTestIdResultRouteImport } from './routes/_authenticated/tests.$testId.result'
 
-const SignupRoute = SignupRouteImport.update({
-  id: '/signup',
-  path: '/signup',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
@@ -55,48 +49,24 @@ const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRoute = AuthenticatedRouteImport.update({
-  id: '/_authenticated',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiChatRoute = ApiChatRouteImport.update({
-  id: '/api/chat',
-  path: '/api/chat',
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedTestsRoute = AuthenticatedTestsRouteImport.update({
-  id: '/tests',
-  path: '/tests',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedNotesRoute = AuthenticatedNotesRouteImport.update({
-  id: '/notes',
-  path: '/notes',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedLiveRoute = AuthenticatedLiveRouteImport.update({
-  id: '/live',
-  path: '/live',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-const AuthenticatedCommunityRoute = AuthenticatedCommunityRouteImport.update({
-  id: '/community',
-  path: '/community',
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedBatchesRoute = AuthenticatedBatchesRouteImport.update({
@@ -104,38 +74,46 @@ const AuthenticatedBatchesRoute = AuthenticatedBatchesRouteImport.update({
   path: '/batches',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
+const AuthenticatedCommunityRoute = AuthenticatedCommunityRouteImport.update({
+  id: '/community',
+  path: '/community',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedTestsIndexRoute = AuthenticatedTestsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AuthenticatedTestsRoute,
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedMoviesIndexRoute =
-  AuthenticatedMoviesIndexRouteImport.update({
-    id: '/movies/',
-    path: '/movies/',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
-const ApiPublicInitAdminRoute = ApiPublicInitAdminRouteImport.update({
-  id: '/api/public/init-admin',
-  path: '/api/public/init-admin',
+const AuthenticatedLiveRoute = AuthenticatedLiveRouteImport.update({
+  id: '/live',
+  path: '/live',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedNotesRoute = AuthenticatedNotesRouteImport.update({
+  id: '/notes',
+  path: '/notes',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedTestsRoute = AuthenticatedTestsRouteImport.update({
+  id: '/tests',
+  path: '/tests',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const ApiChatRoute = ApiChatRouteImport.update({
+  id: '/api/chat',
+  path: '/api/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedTestsTestIdRoute =
-  AuthenticatedTestsTestIdRouteImport.update({
-    id: '/$testId',
-    path: '/$testId',
-    getParentRoute: () => AuthenticatedTestsRoute,
-  } as any)
-const AuthenticatedMoviesMovieIdRoute =
-  AuthenticatedMoviesMovieIdRouteImport.update({
-    id: '/movies/$movieId',
-    path: '/movies/$movieId',
-    getParentRoute: () => AuthenticatedRoute,
+const AuthenticatedBatchesBatchIdRoute =
+  AuthenticatedBatchesBatchIdRouteImport.update({
+    id: '/$batchId',
+    path: '/$batchId',
+    getParentRoute: () => AuthenticatedBatchesRoute,
   } as any)
 const AuthenticatedLecturesLectureIdRoute =
   AuthenticatedLecturesLectureIdRouteImport.update({
@@ -143,28 +121,50 @@ const AuthenticatedLecturesLectureIdRoute =
     path: '/lectures/$lectureId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-const AuthenticatedBatchesBatchIdRoute =
-  AuthenticatedBatchesBatchIdRouteImport.update({
-    id: '/$batchId',
-    path: '/$batchId',
-    getParentRoute: () => AuthenticatedBatchesRoute,
+const AuthenticatedMoviesIndexRoute =
+  AuthenticatedMoviesIndexRouteImport.update({
+    id: '/movies/',
+    path: '/movies/',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedMoviesMovieIdRoute =
+  AuthenticatedMoviesMovieIdRouteImport.update({
+    id: '/movies/$movieId',
+    path: '/movies/$movieId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedTestsIndexRoute = AuthenticatedTestsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedTestsRoute,
+} as any)
+const AuthenticatedTestsTestIdRoute =
+  AuthenticatedTestsTestIdRouteImport.update({
+    id: '/$testId',
+    path: '/$testId',
+    getParentRoute: () => AuthenticatedTestsRoute,
+  } as any)
+const ApiPublicInitAdminRoute = ApiPublicInitAdminRouteImport.update({
+  id: '/api/public/init-admin',
+  path: '/api/public/init-admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedTestsTestIdIndexRoute =
   AuthenticatedTestsTestIdIndexRouteImport.update({
     id: '/',
     path: '/',
     getParentRoute: () => AuthenticatedTestsTestIdRoute,
   } as any)
-const AuthenticatedTestsTestIdResultRoute =
-  AuthenticatedTestsTestIdResultRouteImport.update({
-    id: '/result',
-    path: '/result',
-    getParentRoute: () => AuthenticatedTestsTestIdRoute,
-  } as any)
 const AuthenticatedTestsTestIdAttemptRoute =
   AuthenticatedTestsTestIdAttemptRouteImport.update({
     id: '/attempt',
     path: '/attempt',
+    getParentRoute: () => AuthenticatedTestsTestIdRoute,
+  } as any)
+const AuthenticatedTestsTestIdResultRoute =
+  AuthenticatedTestsTestIdResultRouteImport.update({
+    id: '/result',
+    path: '/result',
     getParentRoute: () => AuthenticatedTestsTestIdRoute,
   } as any)
 
@@ -339,32 +339,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/signup': {
-      id: '/signup'
-      path: '/signup'
-      fullPath: '/signup'
-      preLoaderRoute: typeof SignupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/forgot-password': {
-      id: '/forgot-password'
-      path: '/forgot-password'
-      fullPath: '/forgot-password'
-      preLoaderRoute: typeof ForgotPasswordRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -374,60 +353,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/chat': {
-      id: '/api/chat'
-      path: '/api/chat'
-      fullPath: '/api/chat'
-      preLoaderRoute: typeof ApiChatRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/tests': {
-      id: '/_authenticated/tests'
-      path: '/tests'
-      fullPath: '/tests'
-      preLoaderRoute: typeof AuthenticatedTestsRouteImport
-      parentRoute: typeof AuthenticatedRoute
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/profile': {
-      id: '/_authenticated/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof AuthenticatedProfileRouteImport
-      parentRoute: typeof AuthenticatedRoute
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/notes': {
-      id: '/_authenticated/notes'
-      path: '/notes'
-      fullPath: '/notes'
-      preLoaderRoute: typeof AuthenticatedNotesRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/live': {
-      id: '/_authenticated/live'
-      path: '/live'
-      fullPath: '/live'
-      preLoaderRoute: typeof AuthenticatedLiveRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/dashboard': {
-      id: '/_authenticated/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/community': {
-      id: '/_authenticated/community'
-      path: '/community'
-      fullPath: '/community'
-      preLoaderRoute: typeof AuthenticatedCommunityRouteImport
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/batches': {
@@ -437,11 +395,81 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBatchesRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
-    '/_authenticated/admin': {
-      id: '/_authenticated/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+    '/_authenticated/community': {
+      id: '/_authenticated/community'
+      path: '/community'
+      fullPath: '/community'
+      preLoaderRoute: typeof AuthenticatedCommunityRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/live': {
+      id: '/_authenticated/live'
+      path: '/live'
+      fullPath: '/live'
+      preLoaderRoute: typeof AuthenticatedLiveRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/notes': {
+      id: '/_authenticated/notes'
+      path: '/notes'
+      fullPath: '/notes'
+      preLoaderRoute: typeof AuthenticatedNotesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/profile': {
+      id: '/_authenticated/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof AuthenticatedProfileRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/tests': {
+      id: '/_authenticated/tests'
+      path: '/tests'
+      fullPath: '/tests'
+      preLoaderRoute: typeof AuthenticatedTestsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/api/chat': {
+      id: '/api/chat'
+      path: '/api/chat'
+      fullPath: '/api/chat'
+      preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/batches/$batchId': {
+      id: '/_authenticated/batches/$batchId'
+      path: '/$batchId'
+      fullPath: '/batches/$batchId'
+      preLoaderRoute: typeof AuthenticatedBatchesBatchIdRouteImport
+      parentRoute: typeof AuthenticatedBatchesRoute
+    }
+    '/_authenticated/lectures/$lectureId': {
+      id: '/_authenticated/lectures/$lectureId'
+      path: '/lectures/$lectureId'
+      fullPath: '/lectures/$lectureId'
+      preLoaderRoute: typeof AuthenticatedLecturesLectureIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/movies/': {
+      id: '/_authenticated/movies/'
+      path: '/movies'
+      fullPath: '/movies/'
+      preLoaderRoute: typeof AuthenticatedMoviesIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/movies/$movieId': {
+      id: '/_authenticated/movies/$movieId'
+      path: '/movies/$movieId'
+      fullPath: '/movies/$movieId'
+      preLoaderRoute: typeof AuthenticatedMoviesMovieIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/tests/': {
@@ -451,12 +479,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTestsIndexRouteImport
       parentRoute: typeof AuthenticatedTestsRoute
     }
-    '/_authenticated/movies/': {
-      id: '/_authenticated/movies/'
-      path: '/movies'
-      fullPath: '/movies/'
-      preLoaderRoute: typeof AuthenticatedMoviesIndexRouteImport
-      parentRoute: typeof AuthenticatedRoute
+    '/_authenticated/tests/$testId': {
+      id: '/_authenticated/tests/$testId'
+      path: '/$testId'
+      fullPath: '/tests/$testId'
+      preLoaderRoute: typeof AuthenticatedTestsTestIdRouteImport
+      parentRoute: typeof AuthenticatedTestsRoute
     }
     '/api/public/init-admin': {
       id: '/api/public/init-admin'
@@ -465,34 +493,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicInitAdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/tests/$testId': {
-      id: '/_authenticated/tests/$testId'
-      path: '/$testId'
-      fullPath: '/tests/$testId'
-      preLoaderRoute: typeof AuthenticatedTestsTestIdRouteImport
-      parentRoute: typeof AuthenticatedTestsRoute
-    }
-    '/_authenticated/movies/$movieId': {
-      id: '/_authenticated/movies/$movieId'
-      path: '/movies/$movieId'
-      fullPath: '/movies/$movieId'
-      preLoaderRoute: typeof AuthenticatedMoviesMovieIdRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/lectures/$lectureId': {
-      id: '/_authenticated/lectures/$lectureId'
-      path: '/lectures/$lectureId'
-      fullPath: '/lectures/$lectureId'
-      preLoaderRoute: typeof AuthenticatedLecturesLectureIdRouteImport
-      parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/batches/$batchId': {
-      id: '/_authenticated/batches/$batchId'
-      path: '/$batchId'
-      fullPath: '/batches/$batchId'
-      preLoaderRoute: typeof AuthenticatedBatchesBatchIdRouteImport
-      parentRoute: typeof AuthenticatedBatchesRoute
-    }
     '/_authenticated/tests/$testId/': {
       id: '/_authenticated/tests/$testId/'
       path: '/'
@@ -500,18 +500,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTestsTestIdIndexRouteImport
       parentRoute: typeof AuthenticatedTestsTestIdRoute
     }
-    '/_authenticated/tests/$testId/result': {
-      id: '/_authenticated/tests/$testId/result'
-      path: '/result'
-      fullPath: '/tests/$testId/result'
-      preLoaderRoute: typeof AuthenticatedTestsTestIdResultRouteImport
-      parentRoute: typeof AuthenticatedTestsTestIdRoute
-    }
     '/_authenticated/tests/$testId/attempt': {
       id: '/_authenticated/tests/$testId/attempt'
       path: '/attempt'
       fullPath: '/tests/$testId/attempt'
       preLoaderRoute: typeof AuthenticatedTestsTestIdAttemptRouteImport
+      parentRoute: typeof AuthenticatedTestsTestIdRoute
+    }
+    '/_authenticated/tests/$testId/result': {
+      id: '/_authenticated/tests/$testId/result'
+      path: '/result'
+      fullPath: '/tests/$testId/result'
+      preLoaderRoute: typeof AuthenticatedTestsTestIdResultRouteImport
       parentRoute: typeof AuthenticatedTestsTestIdRoute
     }
   }
