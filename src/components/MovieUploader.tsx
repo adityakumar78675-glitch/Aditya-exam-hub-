@@ -327,6 +327,26 @@ export function MovieUploader({ movieKey, existingPath, existingSize, onUploaded
         </div>
       )}
 
+      {import.meta.env.DEV && diag && (
+        <details className="rounded-lg border border-border bg-background/60 p-2">
+          <summary className="text-[11px] cursor-pointer text-muted-foreground">Upload diagnostics</summary>
+          <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+            <span>Protocol</span><span>{diag.protocol}</span>
+            <span>Host</span><span className="break-all">{diag.host}</span>
+            <span>File size</span><span>{formatBytes(diag.fileSize)}</span>
+            <span>Chunk size</span><span>{formatBytes(diag.chunkSize)}{diag.uploadDataDuringCreation ? " · data sent on create" : ""}</span>
+            <span>Retries</span><span>{diag.retries}{diag.lastStatus !== null ? ` (last HTTP ${diag.lastStatus})` : ""}</span>
+            <span>Duration</span><span>{diag.durationSeconds.toFixed(1)}s</span>
+            <span>Average speed</span><span>{formatSpeed(diag.averageBytesPerSecond)}</span>
+            <span>Peak speed</span><span>{formatSpeed(diag.peakBytesPerSecond)}</span>
+          </div>
+          {!!diag.errors.length && (
+            <pre className="mt-2 max-h-24 overflow-auto text-[10px] text-muted-foreground whitespace-pre-wrap">{diag.errors.slice(-6).join("\n")}</pre>
+          )}
+        </details>
+      )}
+
+
       <AlertDialog open={confirmCancel} onOpenChange={setConfirmCancel}>
         <AlertDialogContent>
           <AlertDialogHeader>
