@@ -843,21 +843,146 @@ export function MasterJiChat({ onClose }: { onClose: () => void }) {
   );
 }
 
+const MJ_POS_KEY = "masterji-fab-pos";
+const MJ_HIDE_KEY = "masterji-fab-hidden-until";
+const HIDE_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+type FabPos = { x: number; y: number }; // offsets from bottom-right
+
+function readFabPos(): FabPos {
+  try {
+    const raw = localStorage.getItem(MJ_POS_KEY);
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (typeof p.x === "number" && typeof p.y === "number") return p;
+    }
+  } catch { /* ignore */ }
+  return { x: 20, y: 20 };
+}
+
+function clampPos(pos: FabPos): FabPos {
+  const maxX = Math.max(0, window.innerWidth - 72);
+  const maxY = Math.max(0, window.innerHeight - 72);
+  return { x: Math.min(Math.max(0, pos.x), maxX), y: Math.min(Math.max(0, pos.y), maxY) };
+}
+
 export function MasterJiFloatingButton() {
   const { user } = useAuth();
   const { requireAuth } = useLoginGate();
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<FabPos>(() => readFabPos());
+  const [hidden, setHidden] = useState(() => {
+    try {
+      const until = Number(localStorage.getItem(MJ_HIDE_KEY) || 0);
+      return until > Date.now();
+    } catch { return false; }
+  });
+  const [showHideChip, setShowHideChip] = useState(false);
+  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number; moved: boolean } | null>(null);
+  const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  // Un-hide automatically after 24 hours
+  useEffect(() => {
+    if (!hidden) return;
+    const until = Number(localStorage.getItem(MJ_HIDE_KEY) || 0);
+    const ms = until - Date.now();
+    if (ms <= 0) { setHidden(false); return; }
+    const t = setTimeout(() => { localStorage.removeItem(MJ_HIDE_KEY); setHidden(false); }, ms);
+    return () => clearTimeout(t);
+  }, [hidden]);
+
+  // Keep the button on screen if the window resizes
+  useEffect(() => {
+    const onResize = () => setPos((p) => clampPos(p));
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const hideFor24h = () => {
+    localStorage.setItem(MJ_HIDE_KEY, String(Date.now() + HIDE_MS));
+    setHidden(true);
+    setShowHideChip(false);
+  };
+
+  const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const el = btnRef.current;
+    if (!el) return;
+    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y, moved: false };
+    el.setPointerCapture(e.pointerId);
+    // Long-press (touch) shows the "hide for 24 hours" option
+    longPressRef.current = setTimeout(() => {
+      if (dragRef.current && !dragRef.current.moved) setShowHideChip(true);
+    }, 600);
+  };
+
+  const onPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const dx = d.startX - e.clientX;
+    const dy = d.startY - e.clientY;
+    if (!d.moved && Math.hypot(dx, dy) > 6) {
+      d.moved = true;
+      if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null; }
+    }
+    if (d.moved) {
+      setPos(clampPos({ x: d.origX + dx, y: d.origY + dy }));
+      setShowHideChip(false);
+    }
+  };
+
+  const endDrag = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null; }
+    const d = dragRef.current;
+    dragRef.current = null;
+    try { btnRef.current?.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+    if (d?.moved) {
+      setPos((p) => { const c = clampPos(p); localStorage.setItem(MJ_POS_KEY, JSON.stringify(c)); return c; });
+    }
+  };
+
+  if (hidden) {
+    // Tiny restore handle while hidden for 24 hours
+    return (
+      <button
+        onClick={() => { localStorage.removeItem(MJ_HIDE_KEY); setHidden(false); }}
+        className="fixed bottom-2 right-2 z-50 flex size-8 items-center justify-center rounded-full bg-primary/40 text-primary-foreground shadow hover:bg-primary/70 transition"
+        aria-label="Show Master Ji again"
+        title="Master Ji is hidden for 24 hours — tap to bring back"
+      >
+        <Bot className="size-4" />
+      </button>
+    );
+  }
+
   return (
     <>
       {!open && (
-        <button
-          onClick={() => { if (requireAuth("Master Ji AI Tutor")) setOpen(true); }}
-          className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl px-4 py-3 font-semibold transition hover:scale-105"
-          aria-label="Open Master Ji AI Tutor"
-        >
-          <Bot className="size-5" />
-          <span className="hidden sm:inline">Master Ji</span>
-        </button>
+        <div className="fixed z-50" style={{ right: pos.x, bottom: pos.y }}>
+          {showHideChip && (
+            <button
+              onClick={hideFor24h}
+              className="absolute -top-10 right-0 whitespace-nowrap rounded-full bg-popover text-popover-foreground border border-border shadow-md px-3 py-1.5 text-xs font-medium hover:bg-accent transition"
+            >
+              Hide for 24 hours
+            </button>
+          )}
+          <button
+            ref={btnRef}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={endDrag}
+            onPointerCancel={endDrag}
+            onClick={() => { if (!dragRef.current?.moved && !showHideChip) { if (requireAuth("Master Ji AI Tutor")) setOpen(true); } }}
+            onContextMenu={(e) => { e.preventDefault(); setShowHideChip((s) => !s); }}
+            className="flex touch-none cursor-grab active:cursor-grabbing items-center gap-2 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl px-4 py-3 font-semibold transition-shadow hover:scale-105 select-none"
+            aria-label="Open Master Ji AI Tutor (drag to move, hold to hide for 24 hours)"
+            title="Drag to move • Hold or right-click to hide for 24 hours"
+          >
+            <Bot className="size-5" />
+            <span className="hidden sm:inline">Master Ji</span>
+          </button>
+        </div>
       )}
       {open && user && <MasterJiChat onClose={() => setOpen(false)} />}
     </>
