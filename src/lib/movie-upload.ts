@@ -9,11 +9,12 @@
 //    errors instead of aborting the whole upload.
 //  - Offline events pause instead of failing; the upload auto-resumes when the
 //    connection returns.
-//  - Upload state (tus fingerprint URL) is persisted in localStorage, so a refresh or
-//    a remount resumes from the last successfully uploaded chunk.
-//  - The storage resumable protocol requires a fixed 6 MB chunk size and does not
-//    accept concurrently uploaded parts for one object, so chunks are streamed
-//    sequentially with aggressive retry rather than in parallel.
+//  - Throughput: the storage resumable endpoint does NOT implement the tus
+//    concatenation extension (partial creates answer 501) and its S3-compatible
+//    endpoint requires SigV4 access keys, so parallel parts for one object are not
+//    available. Throughput therefore comes from cutting round trips: data is sent
+//    with the creation request and chunk size scales with file size (verified
+//    accepted up to 48 MB per PATCH), instead of a fixed 6 MB request per chunk.
 import * as tus from "tus-js-client";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,7 +23,16 @@ export const MOVIE_VIDEO_BUCKET = "movie-videos";
 export const MOVIE_POSTER_BUCKET = "movie-posters";
 export const MAX_MOVIE_BYTES = 5 * 1024 * 1024 * 1024; // 5 GB
 export const MAX_POSTER_BYTES = 10 * 1024 * 1024; // 10 MB
-const CHUNK_SIZE = 6 * 1024 * 1024; // 6MB — required by the storage resumable endpoint
+const MB = 1024 * 1024;
+const BASE_CHUNK = 6 * MB; // storage requires multiples of 6 MB
+
+/** Bigger chunks = far fewer round trips = much higher real throughput on fast links. */
+export function pickChunkSize(fileSize: number) {
+  if (fileSize <= 60 * MB) return BASE_CHUNK;
+  if (fileSize <= 512 * MB) return 4 * BASE_CHUNK; // 24 MB
+  return 8 * BASE_CHUNK; // 48 MB
+}
+
 
 export const ACCEPTED_MOVIE_TYPES = [
   "video/mp4",
