@@ -168,7 +168,8 @@ export function MoviesAdmin() {
 
   const toggleFlag = useMutation({
     mutationFn: async ({ id, field, value }: { id: string; field: "featured" | "trending" | "published"; value: boolean }) => {
-      const { error } = await supabase.from("movies").update({ [field]: value }).eq("id", id);
+      const patch = field === "featured" ? { featured: value } : field === "trending" ? { trending: value } : { published: value };
+      const { error } = await supabase.from("movies").update(patch).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
