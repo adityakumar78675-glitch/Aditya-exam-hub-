@@ -15,6 +15,7 @@
 //    accept concurrently uploaded parts for one object, so chunks are streamed
 //    sequentially with aggressive retry rather than in parallel.
 import * as tus from "tus-js-client";
+import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
 export const MOVIE_VIDEO_BUCKET = "movie-videos";
@@ -191,17 +192,84 @@ export function createSpeedMeter(windowMs = 12_000) {
   };
 }
 
-async function freshAccessToken(): Promise<string> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  if (!token) throw new Error("Your session expired. Sign in again to continue the upload.");
-  return token;
+const LOGIN_REQUIRED_MESSAGE = "Please login as an admin before uploading a movie.";
+
+function isCompactJwt(token: string) {
+  return token.split(".").length === 3;
+}
+
+async function getFreshSession(forceRefresh = false): Promise<Session> {
+  const { data, error } = await supabase.auth.getSession();
+  if (error || !data.session?.user || !data.session.access_token) {
+    throw new Error(LOGIN_REQUIRED_MESSAGE);
+  }
+
+  let session = data.session;
+  const expiresSoon = !session.expires_at || session.expires_at * 1000 <= Date.now() + 60_000;
+  if (forceRefresh || expiresSoon || !isCompactJwt(session.access_token)) {
+    const refreshed = await supabase.auth.refreshSession();
+    if (refreshed.error || !refreshed.data.session?.user || !refreshed.data.session.access_token) {
+      throw new Error(LOGIN_REQUIRED_MESSAGE);
+    }
+    session = refreshed.data.session;
+  }
+
+  if (!isCompactJwt(session.access_token)) {
+    throw new Error("Your login session is invalid. Please sign in again before uploading a movie.");
+  }
+  return session;
+}
+
+async function getAuthorizedAdminSession(): Promise<Session> {
+  let session = await getFreshSession();
+  let validated = await supabase.auth.getUser(session.access_token);
+  if (validated.error || !validated.data.user) {
+    session = await getFreshSession(true);
+    validated = await supabase.auth.getUser(session.access_token);
+  }
+  if (validated.error || !validated.data.user || validated.data.user.id !== session.user.id) {
+    throw new Error(LOGIN_REQUIRED_MESSAGE);
+  }
+
+  const { data: adminRole, error: roleError } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", session.user.id)
+    .eq("role", "admin")
+    .maybeSingle();
+  if (roleError || adminRole?.role !== "admin") {
+    throw new Error("Only an authorized admin can upload movie files.");
+  }
+  return session;
+}
+
+function getResumableUploadEndpoint() {
+  const configuredUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+  if (!configuredUrl) throw new Error("Movie storage is not configured.");
+  const url = new URL(configuredUrl);
+  const projectRef = url.hostname.endsWith(".supabase.co") ? url.hostname.split(".")[0] : null;
+  return projectRef
+    ? `https://${projectRef}.storage.supabase.co/storage/v1/upload/resumable`
+    : `${url.origin}/storage/v1/upload/resumable`;
 }
 
 function isRetryableStatus(status: number) {
-  // 0 = network failure/offline, 401/403 = token refreshed on next attempt,
-  // 409/423 = concurrent lock on the object, 429/5xx = transient server pressure.
-  return status === 0 || status === 401 || status === 403 || status === 409 || status === 423 || status === 429 || status >= 500;
+  // Authentication failures are handled separately and only retried after refresh.
+  return status === 0 || status === 409 || status === 423 || status === 429 || status >= 500;
+}
+
+function isAuthenticationFailure(error: any, status: number) {
+  const body = String(error?.originalResponse?.getBody?.() ?? "").toLowerCase();
+  return status === 401 || status === 403 || (
+    status === 400 && (
+      body.includes("invalid compact jws") ||
+      body.includes("invalidjwt") ||
+      body.includes("unauthorized") ||
+      body.includes("accessdenied") ||
+      body.includes('"statuscode":"403"') ||
+      body.includes('"statuscode":403')
+    )
+  );
 }
 
 /**
@@ -214,18 +282,30 @@ export async function startResumableMovieUpload(
   objectPath: string,
   cb: UploadCallbacks,
 ): Promise<UploadHandle> {
-  const token = await freshAccessToken();
-  const projectUrl = import.meta.env.VITE_SUPABASE_URL as string;
+  const initialSession = await getAuthorizedAdminSession();
+  const uploadEndpoint = getResumableUploadEndpoint();
+
+  console.log("[Movie TUS] authenticated upload starting", {
+    isAuthenticated: !!initialSession.user,
+    userId: initialSession.user.id,
+    hasAccessToken: !!initialSession.access_token,
+    tokenLength: initialSession.access_token.length,
+    uploadEndpoint,
+    bucketName: MOVIE_VIDEO_BUCKET,
+    objectPath,
+  });
 
   let running = true;
   let userPaused = false;
   let finished = false;
+  let forceAuthRefresh = false;
+  let authRecoveryAttempts = 0;
 
   const upload = new tus.Upload(file, {
-    endpoint: `${projectUrl}/storage/v1/upload/resumable`,
+    endpoint: uploadEndpoint,
     // Exponential backoff — a temporary drop never kills the whole upload.
     retryDelays: [0, 1000, 3000, 7000, 15000, 30000, 45000, 60000, 60000, 60000],
-    headers: { authorization: `Bearer ${token}`, "x-upsert": "true" },
+    headers: { Authorization: `Bearer ${initialSession.access_token}`, "x-upsert": "true" },
     uploadDataDuringCreation: true,
     removeFingerprintOnSuccess: true,
     storeFingerprintForResuming: true,
@@ -236,18 +316,24 @@ export async function startResumableMovieUpload(
       cacheControl: "3600",
     },
     chunkSize: CHUNK_SIZE,
-    // Fresh token on every single chunk request: long uploads outlive one token.
+    // Every TUS request receives the current user's token. Authentication failures
+    // force a refresh before the request is retried; stale tokens are never reused.
     onBeforeRequest: async (req) => {
-      try {
-        const fresh = await freshAccessToken();
-        req.setHeader("authorization", `Bearer ${fresh}`);
-      } catch {
-        /* keep the original token; the retry logic handles a 401 */
-      }
+      const session = await getFreshSession(forceAuthRefresh);
+      forceAuthRefresh = false;
+      req.setHeader("Authorization", `Bearer ${session.access_token}`);
+      req.setHeader("x-upsert", "true");
     },
     onShouldRetry: (err: any, retryAttempt: number) => {
       if (finished || userPaused) return false;
       const status = err?.originalResponse?.getStatus?.() ?? 0;
+      if (isAuthenticationFailure(err, status)) {
+        if (authRecoveryAttempts >= 1) return false;
+        authRecoveryAttempts += 1;
+        forceAuthRefresh = true;
+        cb.onStatus("reconnecting", "Refreshing your secure upload session…");
+        return true;
+      }
       if (typeof navigator !== "undefined" && navigator.onLine === false) {
         cb.onStatus("reconnecting", "Connection interrupted — retrying…");
         return true;
@@ -257,15 +343,14 @@ export async function startResumableMovieUpload(
           "reconnecting",
           status === 0
             ? "Network connection lost. Retrying…"
-            : status === 401 || status === 403
-              ? "Upload session expired. Recovering…"
-              : "Upload server temporarily unavailable. Retrying…",
+            : "Upload server temporarily unavailable. Retrying…",
         );
         return retryAttempt < 9;
       }
       return false;
     },
     onProgress: (sent, total) => {
+      authRecoveryAttempts = 0;
       if (!userPaused) cb.onStatus("uploading");
       cb.onProgress(sent, total);
     },
