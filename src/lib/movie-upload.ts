@@ -174,12 +174,29 @@ export type UploadHandle = {
   isRunning: () => boolean;
 };
 
+export type UploadDiagnostics = {
+  protocol: string;
+  host: string;
+  fileSize: number;
+  chunkSize: number;
+  uploadDataDuringCreation: boolean;
+  retries: number;
+  lastStatus: number | null;
+  errors: string[];
+  startedAt: number;
+  durationSeconds: number;
+  averageBytesPerSecond: number;
+  peakBytesPerSecond: number;
+};
+
 export type UploadCallbacks = {
   onProgress: (uploaded: number, total: number) => void;
   onStatus: (status: UploadStatus, message?: string) => void;
   onSuccess: (path: string) => void;
   onError: (error: Error) => void;
+  onDiagnostics?: (diagnostics: UploadDiagnostics) => void;
 };
+
 
 /** Rolling-average speed tracker (stable MB/s instead of a jittery instant value). */
 export function createSpeedMeter(windowMs = 12_000) {
