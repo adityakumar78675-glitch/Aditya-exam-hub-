@@ -25,8 +25,10 @@ import { Route as AuthenticatedCommunityRouteImport } from './routes/_authentica
 import { Route as AuthenticatedBatchesRouteImport } from './routes/_authenticated/batches'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedTestsIndexRouteImport } from './routes/_authenticated/tests.index'
+import { Route as AuthenticatedMoviesIndexRouteImport } from './routes/_authenticated/movies.index'
 import { Route as ApiPublicInitAdminRouteImport } from './routes/api/public/init-admin'
 import { Route as AuthenticatedTestsTestIdRouteImport } from './routes/_authenticated/tests.$testId'
+import { Route as AuthenticatedMoviesMovieIdRouteImport } from './routes/_authenticated/movies.$movieId'
 import { Route as AuthenticatedLecturesLectureIdRouteImport } from './routes/_authenticated/lectures.$lectureId'
 import { Route as AuthenticatedBatchesBatchIdRouteImport } from './routes/_authenticated/batches.$batchId'
 import { Route as AuthenticatedTestsTestIdIndexRouteImport } from './routes/_authenticated/tests.$testId.index'
@@ -112,6 +114,12 @@ const AuthenticatedTestsIndexRoute = AuthenticatedTestsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedTestsRoute,
 } as any)
+const AuthenticatedMoviesIndexRoute =
+  AuthenticatedMoviesIndexRouteImport.update({
+    id: '/movies/',
+    path: '/movies/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const ApiPublicInitAdminRoute = ApiPublicInitAdminRouteImport.update({
   id: '/api/public/init-admin',
   path: '/api/public/init-admin',
@@ -122,6 +130,12 @@ const AuthenticatedTestsTestIdRoute =
     id: '/$testId',
     path: '/$testId',
     getParentRoute: () => AuthenticatedTestsRoute,
+  } as any)
+const AuthenticatedMoviesMovieIdRoute =
+  AuthenticatedMoviesMovieIdRouteImport.update({
+    id: '/movies/$movieId',
+    path: '/movies/$movieId',
+    getParentRoute: () => AuthenticatedRoute,
   } as any)
 const AuthenticatedLecturesLectureIdRoute =
   AuthenticatedLecturesLectureIdRouteImport.update({
@@ -171,8 +185,10 @@ export interface FileRoutesByFullPath {
   '/api/chat': typeof ApiChatRoute
   '/batches/$batchId': typeof AuthenticatedBatchesBatchIdRoute
   '/lectures/$lectureId': typeof AuthenticatedLecturesLectureIdRoute
+  '/movies/$movieId': typeof AuthenticatedMoviesMovieIdRoute
   '/tests/$testId': typeof AuthenticatedTestsTestIdRouteWithChildren
   '/api/public/init-admin': typeof ApiPublicInitAdminRoute
+  '/movies/': typeof AuthenticatedMoviesIndexRoute
   '/tests/': typeof AuthenticatedTestsIndexRoute
   '/tests/$testId/attempt': typeof AuthenticatedTestsTestIdAttemptRoute
   '/tests/$testId/result': typeof AuthenticatedTestsTestIdResultRoute
@@ -194,7 +210,9 @@ export interface FileRoutesByTo {
   '/api/chat': typeof ApiChatRoute
   '/batches/$batchId': typeof AuthenticatedBatchesBatchIdRoute
   '/lectures/$lectureId': typeof AuthenticatedLecturesLectureIdRoute
+  '/movies/$movieId': typeof AuthenticatedMoviesMovieIdRoute
   '/api/public/init-admin': typeof ApiPublicInitAdminRoute
+  '/movies': typeof AuthenticatedMoviesIndexRoute
   '/tests': typeof AuthenticatedTestsIndexRoute
   '/tests/$testId/attempt': typeof AuthenticatedTestsTestIdAttemptRoute
   '/tests/$testId/result': typeof AuthenticatedTestsTestIdResultRoute
@@ -219,8 +237,10 @@ export interface FileRoutesById {
   '/api/chat': typeof ApiChatRoute
   '/_authenticated/batches/$batchId': typeof AuthenticatedBatchesBatchIdRoute
   '/_authenticated/lectures/$lectureId': typeof AuthenticatedLecturesLectureIdRoute
+  '/_authenticated/movies/$movieId': typeof AuthenticatedMoviesMovieIdRoute
   '/_authenticated/tests/$testId': typeof AuthenticatedTestsTestIdRouteWithChildren
   '/api/public/init-admin': typeof ApiPublicInitAdminRoute
+  '/_authenticated/movies/': typeof AuthenticatedMoviesIndexRoute
   '/_authenticated/tests/': typeof AuthenticatedTestsIndexRoute
   '/_authenticated/tests/$testId/attempt': typeof AuthenticatedTestsTestIdAttemptRoute
   '/_authenticated/tests/$testId/result': typeof AuthenticatedTestsTestIdResultRoute
@@ -245,8 +265,10 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/batches/$batchId'
     | '/lectures/$lectureId'
+    | '/movies/$movieId'
     | '/tests/$testId'
     | '/api/public/init-admin'
+    | '/movies/'
     | '/tests/'
     | '/tests/$testId/attempt'
     | '/tests/$testId/result'
@@ -268,7 +290,9 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/batches/$batchId'
     | '/lectures/$lectureId'
+    | '/movies/$movieId'
     | '/api/public/init-admin'
+    | '/movies'
     | '/tests'
     | '/tests/$testId/attempt'
     | '/tests/$testId/result'
@@ -292,8 +316,10 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/_authenticated/batches/$batchId'
     | '/_authenticated/lectures/$lectureId'
+    | '/_authenticated/movies/$movieId'
     | '/_authenticated/tests/$testId'
     | '/api/public/init-admin'
+    | '/_authenticated/movies/'
     | '/_authenticated/tests/'
     | '/_authenticated/tests/$testId/attempt'
     | '/_authenticated/tests/$testId/result'
@@ -425,6 +451,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTestsIndexRouteImport
       parentRoute: typeof AuthenticatedTestsRoute
     }
+    '/_authenticated/movies/': {
+      id: '/_authenticated/movies/'
+      path: '/movies'
+      fullPath: '/movies/'
+      preLoaderRoute: typeof AuthenticatedMoviesIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/api/public/init-admin': {
       id: '/api/public/init-admin'
       path: '/api/public/init-admin'
@@ -438,6 +471,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/tests/$testId'
       preLoaderRoute: typeof AuthenticatedTestsTestIdRouteImport
       parentRoute: typeof AuthenticatedTestsRoute
+    }
+    '/_authenticated/movies/$movieId': {
+      id: '/_authenticated/movies/$movieId'
+      path: '/movies/$movieId'
+      fullPath: '/movies/$movieId'
+      preLoaderRoute: typeof AuthenticatedMoviesMovieIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/lectures/$lectureId': {
       id: '/_authenticated/lectures/$lectureId'
@@ -529,6 +569,8 @@ interface AuthenticatedRouteChildren {
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedTestsRoute: typeof AuthenticatedTestsRouteWithChildren
   AuthenticatedLecturesLectureIdRoute: typeof AuthenticatedLecturesLectureIdRoute
+  AuthenticatedMoviesMovieIdRoute: typeof AuthenticatedMoviesMovieIdRoute
+  AuthenticatedMoviesIndexRoute: typeof AuthenticatedMoviesIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -541,6 +583,8 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedTestsRoute: AuthenticatedTestsRouteWithChildren,
   AuthenticatedLecturesLectureIdRoute: AuthenticatedLecturesLectureIdRoute,
+  AuthenticatedMoviesMovieIdRoute: AuthenticatedMoviesMovieIdRoute,
+  AuthenticatedMoviesIndexRoute: AuthenticatedMoviesIndexRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
