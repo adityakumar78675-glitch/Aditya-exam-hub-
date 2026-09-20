@@ -116,7 +116,7 @@ export function VideoPlayer({ url, poster, initialPosition = 0, onProgress, onEn
               } catch { /* PiP unsupported */ }
             }}
           >
-            <PictureInPicture2 className="size-3.5 mr-1" /> PiP
+            <PictureInPicture2 className="size-3.5 mr-1" /> Small
           </Button>
         </div>
       </div>
