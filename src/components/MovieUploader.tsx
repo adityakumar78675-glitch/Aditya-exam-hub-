@@ -62,9 +62,12 @@ const STATUS_LABEL: Record<UploadStatus, string> = {
 export function MovieUploader({ movieKey, existingPath, existingSize, onUploaded, onCleared }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const handleRef = useRef<UploadHandle | null>(null);
-  const meterRef = useRef(createSpeedMeter());
+  const meterRef = useRef(createSpeedMeter(8000));
   const startingRef = useRef(false);
   const pendingRef = useRef<{ file: File; path: string; duration: number } | null>(null);
+  const lastUiRef = useRef(0);
+  const lastPersistRef = useRef(0);
+
 
   const [status, setStatus] = useState<UploadStatus>(existingPath ? "completed" : "idle");
   const [notice, setNotice] = useState("");
