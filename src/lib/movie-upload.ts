@@ -9,11 +9,12 @@
 //    errors instead of aborting the whole upload.
 //  - Offline events pause instead of failing; the upload auto-resumes when the
 //    connection returns.
-//  - Upload state (tus fingerprint URL) is persisted in localStorage, so a refresh or
-//    a remount resumes from the last successfully uploaded chunk.
-//  - The storage resumable protocol requires a fixed 6 MB chunk size and does not
-//    accept concurrently uploaded parts for one object, so chunks are streamed
-//    sequentially with aggressive retry rather than in parallel.
+//  - Throughput: the storage resumable endpoint does NOT implement the tus
+//    concatenation extension (partial creates answer 501) and its S3-compatible
+//    endpoint requires SigV4 access keys, so parallel parts for one object are not
+//    available. Throughput therefore comes from cutting round trips: data is sent
+//    with the creation request and chunk size scales with file size (verified
+//    accepted up to 48 MB per PATCH), instead of a fixed 6 MB request per chunk.
 import * as tus from "tus-js-client";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,7 +23,16 @@ export const MOVIE_VIDEO_BUCKET = "movie-videos";
 export const MOVIE_POSTER_BUCKET = "movie-posters";
 export const MAX_MOVIE_BYTES = 5 * 1024 * 1024 * 1024; // 5 GB
 export const MAX_POSTER_BYTES = 10 * 1024 * 1024; // 10 MB
-const CHUNK_SIZE = 6 * 1024 * 1024; // 6MB — required by the storage resumable endpoint
+const MB = 1024 * 1024;
+const BASE_CHUNK = 6 * MB; // storage requires multiples of 6 MB
+
+/** Bigger chunks = far fewer round trips = much higher real throughput on fast links. */
+export function pickChunkSize(fileSize: number) {
+  if (fileSize <= 60 * MB) return BASE_CHUNK;
+  if (fileSize <= 512 * MB) return 4 * BASE_CHUNK; // 24 MB
+  return 8 * BASE_CHUNK; // 48 MB
+}
+
 
 export const ACCEPTED_MOVIE_TYPES = [
   "video/mp4",
@@ -164,12 +174,29 @@ export type UploadHandle = {
   isRunning: () => boolean;
 };
 
+export type UploadDiagnostics = {
+  protocol: string;
+  host: string;
+  fileSize: number;
+  chunkSize: number;
+  uploadDataDuringCreation: boolean;
+  retries: number;
+  lastStatus: number | null;
+  errors: string[];
+  startedAt: number;
+  durationSeconds: number;
+  averageBytesPerSecond: number;
+  peakBytesPerSecond: number;
+};
+
 export type UploadCallbacks = {
   onProgress: (uploaded: number, total: number) => void;
   onStatus: (status: UploadStatus, message?: string) => void;
   onSuccess: (path: string) => void;
   onError: (error: Error) => void;
+  onDiagnostics?: (diagnostics: UploadDiagnostics) => void;
 };
+
 
 /** Rolling-average speed tracker (stable MB/s instead of a jittery instant value). */
 export function createSpeedMeter(windowMs = 12_000) {
@@ -273,9 +300,10 @@ function isAuthenticationFailure(error: any, status: number) {
 }
 
 /**
- * Direct browser-to-storage resumable upload (TUS). Chunks are 6 MB, retried with
- * exponential backoff, and resumed from the last acknowledged byte after any
- * interruption. The entire file is never loaded into memory.
+ * Direct browser-to-storage resumable upload (TUS). The browser talks straight to the
+ * storage host — no app server, no edge function, no base64, and the file is never read
+ * into memory (only the active chunk slice is). Chunk size scales with file size to keep
+ * round trips (not bandwidth) from capping throughput.
  */
 export async function startResumableMovieUpload(
   file: File,
@@ -284,6 +312,26 @@ export async function startResumableMovieUpload(
 ): Promise<UploadHandle> {
   const initialSession = await getAuthorizedAdminSession();
   const uploadEndpoint = getResumableUploadEndpoint();
+  const chunkSize = pickChunkSize(file.size);
+
+  const diagnostics: UploadDiagnostics = {
+    protocol: "tus-resumable/1.0.0",
+    host: new URL(uploadEndpoint).host,
+    fileSize: file.size,
+    chunkSize,
+    uploadDataDuringCreation: true,
+    retries: 0,
+    lastStatus: null,
+    errors: [],
+    startedAt: Date.now(),
+    durationSeconds: 0,
+    averageBytesPerSecond: 0,
+    peakBytesPerSecond: 0,
+  };
+  const emitDiagnostics = () => {
+    diagnostics.durationSeconds = (Date.now() - diagnostics.startedAt) / 1000;
+    cb.onDiagnostics?.({ ...diagnostics });
+  };
 
   console.log("[Movie TUS] authenticated upload starting", {
     isAuthenticated: !!initialSession.user,
@@ -293,6 +341,8 @@ export async function startResumableMovieUpload(
     uploadEndpoint,
     bucketName: MOVIE_VIDEO_BUCKET,
     objectPath,
+    fileSize: file.size,
+    chunkSize,
   });
 
   let running = true;
@@ -301,19 +351,18 @@ export async function startResumableMovieUpload(
   let forceAuthRefresh = false;
   let authRecoveryAttempts = 0;
   let lastAccessToken = initialSession.access_token;
+  let lastProgressAt = Date.now();
+  let lastProgressBytes = 0;
 
   const upload = new tus.Upload(file, {
     endpoint: uploadEndpoint,
-    // Exponential backoff — a temporary drop never kills the whole upload.
-    retryDelays: [0, 1000, 3000, 7000, 15000, 30000, 45000, 60000, 60000, 60000],
+    retryDelays: [0, 3000, 5000, 10000, 20000],
     // Authorization is attached exactly once in onBeforeRequest. Supplying it
     // here as well makes tus-js-client concatenate two Bearer values, producing
     // an invalid compact JWS at the storage gateway.
     headers: { "x-upsert": "true" },
-    // Keep the session-creation POST bodyless. Sending the first 6 MB chunk with
-    // that request is rejected by this storage gateway before JWT verification.
-    // The file still uploads in resumable 6 MB PATCH chunks immediately after.
-    uploadDataDuringCreation: false,
+    // Ship the first chunk with the creation request — one less round trip per upload.
+    uploadDataDuringCreation: true,
     removeFingerprintOnSuccess: true,
     storeFingerprintForResuming: true,
     metadata: {
@@ -322,9 +371,10 @@ export async function startResumableMovieUpload(
       contentType: file.type || "video/mp4",
       cacheControl: "3600",
     },
-    chunkSize: CHUNK_SIZE,
+    chunkSize,
     // Every TUS request receives the current user's token. Authentication failures
     // force a refresh before the request is retried; stale tokens are never reused.
+    // No network call happens here on the happy path — the cached token is reused.
     onBeforeRequest: async (req) => {
       if (forceAuthRefresh) {
         const refreshedSession = await getFreshSession(true);
@@ -337,6 +387,10 @@ export async function startResumableMovieUpload(
     onShouldRetry: (err: any, retryAttempt: number) => {
       if (finished || userPaused) return false;
       const status = err?.originalResponse?.getStatus?.() ?? 0;
+      diagnostics.retries += 1;
+      diagnostics.lastStatus = status;
+      diagnostics.errors.push(`${new Date().toISOString()} status=${status}`);
+      emitDiagnostics();
       if (isAuthenticationFailure(err, status)) {
         if (authRecoveryAttempts >= 1) return false;
         authRecoveryAttempts += 1;
@@ -355,25 +409,40 @@ export async function startResumableMovieUpload(
             ? "Network connection lost. Retrying…"
             : "Upload server temporarily unavailable. Retrying…",
         );
-        return retryAttempt < 9;
+        return retryAttempt < 4;
       }
       return false;
     },
     onProgress: (sent, total) => {
       authRecoveryAttempts = 0;
+      const now = Date.now();
+      const dt = (now - lastProgressAt) / 1000;
+      if (dt > 0.2 && sent > lastProgressBytes) {
+        const instant = (sent - lastProgressBytes) / dt;
+        if (instant > diagnostics.peakBytesPerSecond) diagnostics.peakBytesPerSecond = instant;
+        lastProgressAt = now;
+        lastProgressBytes = sent;
+      }
       if (!userPaused) cb.onStatus("uploading");
       cb.onProgress(sent, total);
     },
     onSuccess: () => {
       finished = true;
       running = false;
+      diagnostics.durationSeconds = (Date.now() - diagnostics.startedAt) / 1000;
+      diagnostics.averageBytesPerSecond = diagnostics.durationSeconds > 0 ? file.size / diagnostics.durationSeconds : 0;
+      emitDiagnostics();
+      console.log("[Movie TUS] upload finished", diagnostics);
       cb.onSuccess(objectPath);
     },
     onError: (err) => {
       running = false;
+      diagnostics.errors.push(String((err as Error)?.message ?? err));
+      emitDiagnostics();
       cb.onError(err as Error);
     },
   });
+
 
   // Recover an interrupted session for the same file (also prevents duplicate uploads).
   const previous = await upload.findPreviousUploads();

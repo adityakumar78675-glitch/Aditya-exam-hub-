@@ -30,6 +30,7 @@ import {
   MOVIE_VIDEO_BUCKET,
   type UploadHandle,
   type UploadStatus,
+  type UploadDiagnostics,
 } from "@/lib/movie-upload";
 
 export type MovieUploadResult = {
@@ -62,9 +63,12 @@ const STATUS_LABEL: Record<UploadStatus, string> = {
 export function MovieUploader({ movieKey, existingPath, existingSize, onUploaded, onCleared }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const handleRef = useRef<UploadHandle | null>(null);
-  const meterRef = useRef(createSpeedMeter());
+  const meterRef = useRef(createSpeedMeter(8000));
   const startingRef = useRef(false);
   const pendingRef = useRef<{ file: File; path: string; duration: number } | null>(null);
+  const lastUiRef = useRef(0);
+  const lastPersistRef = useRef(0);
+
 
   const [status, setStatus] = useState<UploadStatus>(existingPath ? "completed" : "idle");
   const [notice, setNotice] = useState("");
@@ -78,6 +82,8 @@ export function MovieUploader({ movieKey, existingPath, existingSize, onUploaded
   const [donePath, setDonePath] = useState<string | null>(existingPath ?? null);
   const [verified, setVerified] = useState(!!existingPath);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [diag, setDiag] = useState<UploadDiagnostics | null>(null);
+
 
   // Recover a previously interrupted session for this movie after a refresh/remount.
   const [recovered, setRecovered] = useState<ReturnType<typeof loadSession>>(null);
@@ -148,16 +154,26 @@ export function MovieUploader({ movieKey, existingPath, existingSize, onUploaded
           persist({ status: s });
         },
         onProgress: (sent, tot) => {
-          setUploaded(sent);
-          setTotal(tot);
           meterRef.current.push(sent);
-          const rate = meterRef.current.rate();
-          if (rate > 0) {
-            setSpeed(rate);
-            setEta((tot - sent) / rate);
+          const now = Date.now();
+          // Throttle React renders: storage fires progress events continuously.
+          if (now - lastUiRef.current >= 300 || sent >= tot) {
+            lastUiRef.current = now;
+            setUploaded(sent);
+            setTotal(tot);
+            const rate = meterRef.current.rate();
+            if (rate > 0) {
+              setSpeed(rate);
+              setEta((tot - sent) / rate);
+            }
           }
-          persist({ uploadedBytes: sent });
+          if (now - lastPersistRef.current >= 3000 || sent >= tot) {
+            lastPersistRef.current = now;
+            persist({ uploadedBytes: sent });
+          }
         },
+        onDiagnostics: (d) => setDiag(d),
+
         onSuccess: async (storagePath) => {
           setStatus("processing");
           setNotice("Verifying uploaded file…");
@@ -310,6 +326,26 @@ export function MovieUploader({ movieKey, existingPath, existingSize, onUploaded
           {previewUrl && <video src={previewUrl} controls playsInline className="w-full rounded-lg bg-black aspect-video" />}
         </div>
       )}
+
+      {import.meta.env.DEV && diag && (
+        <details className="rounded-lg border border-border bg-background/60 p-2">
+          <summary className="text-[11px] cursor-pointer text-muted-foreground">Upload diagnostics</summary>
+          <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+            <span>Protocol</span><span>{diag.protocol}</span>
+            <span>Host</span><span className="break-all">{diag.host}</span>
+            <span>File size</span><span>{formatBytes(diag.fileSize)}</span>
+            <span>Chunk size</span><span>{formatBytes(diag.chunkSize)}{diag.uploadDataDuringCreation ? " · data sent on create" : ""}</span>
+            <span>Retries</span><span>{diag.retries}{diag.lastStatus !== null ? ` (last HTTP ${diag.lastStatus})` : ""}</span>
+            <span>Duration</span><span>{diag.durationSeconds.toFixed(1)}s</span>
+            <span>Average speed</span><span>{formatSpeed(diag.averageBytesPerSecond)}</span>
+            <span>Peak speed</span><span>{formatSpeed(diag.peakBytesPerSecond)}</span>
+          </div>
+          {!!diag.errors.length && (
+            <pre className="mt-2 max-h-24 overflow-auto text-[10px] text-muted-foreground whitespace-pre-wrap">{diag.errors.slice(-6).join("\n")}</pre>
+          )}
+        </details>
+      )}
+
 
       <AlertDialog open={confirmCancel} onOpenChange={setConfirmCancel}>
         <AlertDialogContent>
