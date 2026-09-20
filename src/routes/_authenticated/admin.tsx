@@ -16,6 +16,7 @@ import { Pencil, Trash2, Plus, Users, BookOpen, Video, IndianRupee, Play } from 
 import { NotesAdmin } from "@/components/NotesAdmin";
 import { NotificationsAdmin } from "@/components/NotificationsAdmin";
 import { TestsAdmin } from "@/components/TestsAdmin";
+import { MoviesAdmin } from "@/components/MoviesAdmin";
 import { LectureUploader } from "@/components/LectureUploader";
 import { removeStorageObjects, formatBytes } from "@/lib/lecture-upload";
 
@@ -49,6 +50,7 @@ function AdminPage() {
             <TabsTrigger value="notes">Notes</TabsTrigger>
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
             <TabsTrigger value="tests">Tests</TabsTrigger>
+            <TabsTrigger value="movies">Movies</TabsTrigger>
             <TabsTrigger value="students">Students</TabsTrigger>
           </TabsList>
           <TabsContent value="overview" className="mt-6"><Overview /></TabsContent>
@@ -61,6 +63,7 @@ function AdminPage() {
           <TabsContent value="notes" className="mt-6"><NotesAdmin /></TabsContent>
           <TabsContent value="notifications" className="mt-6"><NotificationsAdmin /></TabsContent>
           <TabsContent value="tests" className="mt-6"><TestsAdmin /></TabsContent>
+          <TabsContent value="movies" className="mt-6"><MoviesAdmin /></TabsContent>
           <TabsContent value="students" className="mt-6"><StudentsAdmin /></TabsContent>
         </Tabs>
 

@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { Home, BookOpen, Video, Trophy, User, LogOut, Shield, Menu, X, Users, FileText } from "lucide-react";
+import { Home, BookOpen, Video, Trophy, User, LogOut, Shield, Menu, X, Users, FileText, Clapperboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MasterJiFloatingButton } from "@/components/MasterJi";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -37,6 +37,7 @@ function AuthLayout() {
     { to: "/tests", label: "Practice Tests", icon: Trophy, auth: false },
     { to: "/community", label: "Community", icon: Users, auth: true },
     { to: "/notes", label: "Extra Notes", icon: FileText, auth: true },
+    { to: "/movies", label: "Movies", icon: Clapperboard, auth: true },
     { to: "/profile", label: "Profile", icon: User, auth: true },
   ].filter((n) => user || !n.auth);
 

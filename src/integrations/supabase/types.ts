@@ -687,6 +687,169 @@ export type Database = {
           },
         ]
       }
+      movie_genres: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      movie_progress: {
+        Row: {
+          completed: boolean
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          movie_id: string
+          playback_position: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          movie_id: string
+          playback_position?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          movie_id?: string
+          playback_position?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movie_progress_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      movie_watchlist: {
+        Row: {
+          created_at: string
+          id: string
+          movie_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          movie_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          movie_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movie_watchlist_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      movies: {
+        Row: {
+          content_rating: string | null
+          created_at: string
+          description: string | null
+          duration_minutes: number | null
+          featured: boolean
+          file_size: number | null
+          file_type: string | null
+          genres: string[]
+          id: string
+          language: string | null
+          poster_path: string | null
+          poster_url: string | null
+          published: boolean
+          release_year: number | null
+          title: string
+          trailer_url: string | null
+          trending: boolean
+          updated_at: string
+          uploaded_by: string | null
+          video_path: string | null
+          video_url: string | null
+        }
+        Insert: {
+          content_rating?: string | null
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          featured?: boolean
+          file_size?: number | null
+          file_type?: string | null
+          genres?: string[]
+          id?: string
+          language?: string | null
+          poster_path?: string | null
+          poster_url?: string | null
+          published?: boolean
+          release_year?: number | null
+          title: string
+          trailer_url?: string | null
+          trending?: boolean
+          updated_at?: string
+          uploaded_by?: string | null
+          video_path?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          content_rating?: string | null
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          featured?: boolean
+          file_size?: number | null
+          file_type?: string | null
+          genres?: string[]
+          id?: string
+          language?: string | null
+          poster_path?: string | null
+          poster_url?: string | null
+          published?: boolean
+          release_year?: number | null
+          title?: string
+          trailer_url?: string | null
+          trending?: boolean
+          updated_at?: string
+          uploaded_by?: string | null
+          video_path?: string | null
+          video_url?: string | null
+        }
+        Relationships: []
+      }
       notification_recipients: {
         Row: {
           created_at: string
