@@ -30,6 +30,7 @@ import {
   MOVIE_VIDEO_BUCKET,
   type UploadHandle,
   type UploadStatus,
+  type UploadDiagnostics,
 } from "@/lib/movie-upload";
 
 export type MovieUploadResult = {
