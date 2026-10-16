@@ -59,10 +59,10 @@ const MARGIN_L = 50; // red vertical line (left)
 const MARGIN_R = A4_W - 30; // red vertical line (right)
 const TEXT_X = MARGIN_L + 8;
 const TEXT_W = MARGIN_R - 8 - TEXT_X;
-const RULE = 20; // ruled line spacing
-const FIRST_RULE = 72; // first ruled line y
-const CONTENT_TOP = FIRST_RULE + RULE * 3; // after header block
-const CONTENT_BOTTOM = A4_H - RULE * 2;
+const RULE = 17; // ruled line spacing
+const FIRST_RULE = 56; // first ruled line y
+const CONTENT_TOP = FIRST_RULE + RULE * 2; // after compact header
+const CONTENT_BOTTOM = A4_H - RULE;
 const FONT = "AEH-Noto";
 
 export function statusFromVerdict(verdict: boolean | null, your: PdfSolution["your_answer"]): Status {
@@ -272,25 +272,25 @@ function drawPaper(pdf: JsPdfType, meta: PdfMeta, page: number) {
 
   // page number top-right with underline
   const pageLabel = `Page ${page}`;
-  const pw = textWidth(pdf, pageLabel, { size: 10, color: C.ink, bold: false });
-  drawRun(pdf, pageLabel, MARGIN_R - 10 - pw, 30, { size: 10, color: C.ink, bold: false }, 100);
+  const pw = textWidth(pdf, pageLabel, { size: 9, color: C.ink, bold: false });
+  drawRun(pdf, pageLabel, MARGIN_R - 10 - pw, 24, { size: 9, color: C.ink, bold: false }, 100);
   setDraw(pdf, C.rule);
   pdf.setLineWidth(0.6);
-  pdf.line(MARGIN_R - 16 - pw, 35, MARGIN_R - 4, 35);
+  pdf.line(MARGIN_R - 16 - pw, 28, MARGIN_R - 4, 28);
 
   // heading
-  drawRun(pdf, "REFERENCE PAGE (Question & Answer)", TEXT_X, FIRST_RULE - 5, { size: 20, color: C.heading, bold: true }, TEXT_W);
+  drawRun(pdf, "REFERENCE PAGE (Question & Answer)", TEXT_X, FIRST_RULE - 5, { size: 16, color: C.heading, bold: true }, TEXT_W);
   // subject line
   const subject = plainText(meta.subject || "General");
   const title = plainText(meta.testTitle || "Revision");
-  const subjStyle: Style = { size: 13, color: C.ink, bold: true };
+  const subjStyle: Style = { size: 11, color: C.ink, bold: true };
   const w = drawRun(pdf, "Subject: ", TEXT_X, FIRST_RULE + RULE - 5, subjStyle, TEXT_W);
-  const value = wrap(pdf, `${subject} (${title})`, TEXT_W - w, { size: 13, color: C.ink, bold: false })[0] ?? "";
-  drawRun(pdf, value, TEXT_X + w, FIRST_RULE + RULE - 5, { size: 13, color: C.ink, bold: false }, TEXT_W - w);
+  const value = wrap(pdf, `${subject} (${title})`, TEXT_W - w, { size: 11, color: C.ink, bold: false })[0] ?? "";
+  drawRun(pdf, value, TEXT_X + w, FIRST_RULE + RULE - 5, { size: 11, color: C.ink, bold: false }, TEXT_W - w);
   // divider under header
   setDraw(pdf, C.heading);
   pdf.setLineWidth(0.9);
-  pdf.line(TEXT_X, FIRST_RULE + RULE + 4, MARGIN_R - 8, FIRST_RULE + RULE + 4);
+  pdf.line(TEXT_X, FIRST_RULE + RULE + 2, MARGIN_R - 8, FIRST_RULE + RULE + 2);
 }
 
 function answerText(s: PdfSolution, opts: string[], value: PdfSolution["your_answer"]): string {
@@ -310,32 +310,21 @@ function correctText(s: PdfSolution, opts: string[]): string | null {
   return null;
 }
 
-const Q_LABEL: Style = { size: 12.5, color: C.heading, bold: true };
-const Q_TEXT: Style = { size: 12.5, color: C.ink, bold: true };
-const A_LABEL: Style = { size: 12, color: C.ink, bold: true };
-const A_TEXT: Style = { size: 12, color: C.ink, bold: false };
-const E_LABEL: Style = { size: 10.5, color: C.heading, bold: true };
-const E_TEXT: Style = { size: 10.5, color: C.ink, bold: false };
+const Q_LABEL: Style = { size: 11.5, color: C.heading, bold: true };
+const Q_TEXT: Style = { size: 11.5, color: C.ink, bold: true };
+const A_LABEL: Style = { size: 11, color: C.ink, bold: true };
+const A_TEXT: Style = { size: 11, color: C.ink, bold: false };
 
-function blocksFor(kind: PdfKind, s: PdfSolution, status: Status, lang: "en" | "hi", qNo: number): Block[] {
+/** Question + resolved correct answer only — no options, no student answer, no status. */
+function blocksFor(_kind: PdfKind, s: PdfSolution, _status: Status, lang: "en" | "hi", qNo: number): Block[] {
   const question = (lang === "hi" && s.question_hi) || s.question_en;
   const opts = lang === "hi" && s.options_hi.length && s.options_hi.length === s.options_en.length ? s.options_hi : s.options_en;
-  const explanation = ((lang === "hi" && s.solution_hi) || s.solution_en || "").trim();
-  const correct = correctText(s, opts);
-  const out: Block[] = [{ label: `Q${qNo}:`, labelStyle: Q_LABEL, text: question, textStyle: Q_TEXT }];
-  if (s.type === "mcq") {
-    opts.forEach((o, i) => out.push({ label: `(${String.fromCharCode(65 + i)})`, labelStyle: A_TEXT, text: o, textStyle: A_TEXT }));
-  }
-  if (kind === "correct") {
-    out.push({ label: "Ans:", labelStyle: A_LABEL, text: correct ?? answerText(s, opts, s.your_answer), textStyle: A_TEXT });
-  } else {
-    const verdict = status === "correct" ? "  (Correct)" : status === "incorrect" ? "  (Wrong)" : "";
-    const yourColor = status === "correct" ? C.green : status === "incorrect" ? C.red : C.muted;
-    out.push({ label: "Your Answer:", labelStyle: A_LABEL, text: answerText(s, opts, s.your_answer) + verdict, textStyle: { ...A_TEXT, color: yourColor } });
-    out.push({ label: "Ans:", labelStyle: A_LABEL, text: correct ?? "Evaluated manually", textStyle: A_TEXT });
-  }
-  if (explanation) out.push({ label: "Explanation:", labelStyle: E_LABEL, text: explanation, textStyle: E_TEXT });
-  return out;
+  let answer = correctText(s, opts);
+  if (s.type === "mcq" && s.correct_option !== null) answer = (opts[s.correct_option] ?? "").trim() || answer;
+  return [
+    { label: `Q${qNo}.`, labelStyle: Q_LABEL, text: question, textStyle: Q_TEXT },
+    { label: "Answer:", labelStyle: A_LABEL, text: answer ?? "Correct answer not available", textStyle: A_TEXT },
+  ];
 }
 
 export async function generateResultPdf(opts: {
@@ -379,7 +368,7 @@ export async function generateResultPdf(opts: {
 
     for (let bi = 0; bi < blocks.length; bi++) {
       const { b, lw, lines } = blocks[bi]!;
-      const isOption = b.label.startsWith("(") && sol.type === "mcq" && bi > 0 && bi <= sol.options_en.length;
+      const isOption = false;
       const x0 = TEXT_X + (isOption ? 14 : 0);
       for (let li = 0; li < lines.length; li++) {
         if (y > CONTENT_BOTTOM) nextPage();
