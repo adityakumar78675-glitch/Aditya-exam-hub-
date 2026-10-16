@@ -1,3 +1,4 @@
+import { correctScientific } from "./sci-symbols";
 export type DraftQuestion = {
   key: string;
   question_en: string;
@@ -53,7 +54,20 @@ export function indexToLetter(i: number | null): string {
  *   Negative: 1
  *   Explanation: ...
  */
+export function correctDraft(q: DraftQuestion): DraftQuestion {
+  return {
+    ...q,
+    question_en: correctScientific(q.question_en),
+    options_en: q.options_en.map((o) => correctScientific(o)),
+    solution_en: q.solution_en === null ? null : correctScientific(q.solution_en),
+  };
+}
+
 export function parseBulkText(input: string): DraftQuestion[] {
+  return parseBulkTextRaw(input).map(correctDraft);
+}
+
+function parseBulkTextRaw(input: string): DraftQuestion[] {
   const lines = input.replace(/\r\n?/g, "\n").split("\n");
   const out: DraftQuestion[] = [];
   let cur: DraftQuestion | null = null;
@@ -188,7 +202,7 @@ export function rowsToDrafts(rows: Record<string, unknown>[]): DraftQuestion[] {
       else if (key === "image_url") d.image_url = val;
       else if (key === "question_en") d.question_en = val;
     }
-    return d;
+    return correctDraft(d);
   });
 }
 
