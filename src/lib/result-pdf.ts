@@ -132,9 +132,6 @@ function plainText(input: string | null | undefined): string {
     .trim();
 }
 
-function setFill(pdf: JsPdfType, color: RGB) { pdf.setFillColor(color[0], color[1], color[2]); }
-function setDraw(pdf: JsPdfType, color: RGB) { pdf.setDrawColor(color[0], color[1], color[2]); }
-function setText(pdf: JsPdfType, color: RGB) { pdf.setTextColor(color[0], color[1], color[2]); }
 
 function dataUrlFromBuffer(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
