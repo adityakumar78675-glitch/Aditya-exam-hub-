@@ -897,7 +897,13 @@ export const adminSaveQuestion = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase as never, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const payload = { ...data };
+    const { correctScientific: fix } = await import("@/lib/sci-symbols");
+    const payload = {
+      ...data,
+      question_en: fix(data.question_en),
+      options_en: data.options_en?.map((o) => fix(o)),
+      solution_en: data.solution_en == null ? data.solution_en : fix(data.solution_en),
+    };
     delete payload.id;
     if (data.id) {
       const { error } = await supabaseAdmin.from("test_questions").update(payload).eq("id", data.id);
@@ -953,8 +959,9 @@ export const adminBulkInsertQuestions = createServerFn({ method: "POST" })
       .limit(1);
     let next = (existing?.[0]?.order_index ?? 0) + 1;
 
+    const { correctScientific: fix } = await import("@/lib/sci-symbols");
     const rows = data.questions.map((q) => {
-      const opts = q.options_en.map((o) => String(o ?? "").trim());
+      const opts = q.options_en.map((o) => fix(String(o ?? "").trim()));
       if (!q.question_en.trim()) throw new Error("A question has no text");
       if (opts.length < 2 || opts.some((o) => !o)) throw new Error("A question has empty options");
       if (q.correct_option < 0 || q.correct_option >= opts.length) throw new Error("A question has an invalid answer");
@@ -962,11 +969,11 @@ export const adminBulkInsertQuestions = createServerFn({ method: "POST" })
         test_id: data.testId,
         order_index: next++,
         type: "mcq" as const,
-        question_en: q.question_en.trim(),
+        question_en: fix(q.question_en.trim()),
         options_en: opts,
         options_hi: [],
         correct_option: q.correct_option,
-        solution_en: q.solution_en?.trim() || null,
+        solution_en: q.solution_en?.trim() ? fix(q.solution_en.trim()) : null,
         image_url: q.image_url?.trim() || null,
         positive_marks: q.positive_marks ?? null,
         negative_marks: q.negative_marks ?? null,

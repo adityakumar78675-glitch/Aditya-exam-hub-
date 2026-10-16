@@ -1,3 +1,4 @@
+import { correctScientific } from "./sci-symbols";
 import type { jsPDF as JsPdfType } from "jspdf";
 import pdfFontUrl from "@/assets/fonts/NotoSans-Regular.ttf?url";
 import pdfBoldFontUrl from "@/assets/fonts/NotoSans-Bold.ttf?url";
@@ -97,6 +98,7 @@ export function pdfFileName(kind: PdfKind, testTitle: string): string {
 
 function plainText(input: string | null | undefined): string {
   if (!input) return "";
+  input = correctScientific(input);
   const superscript: Record<string, string> = { "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹", "+": "⁺", "-": "⁻" };
   const subscript: Record<string, string> = { "0": "₀", "1": "₁", "2": "₂", "3": "₃", "4": "₄", "5": "₅", "6": "₆", "7": "₇", "8": "₈", "9": "₉", "+": "₊", "-": "₋" };
   const script = (value: string, map: Record<string, string>) => [...value].map((c) => map[c] ?? c).join("");
