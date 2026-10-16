@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Download, FileText, Loader2, CheckCircle2, XCircle, BookOpen } from "lucide-react";
+import { findAmbiguous } from "@/lib/sci-symbols";
 import type { PdfKind, PdfMeta, PdfSolution } from "@/lib/result-pdf";
 
 type Item = { sol: PdfSolution; status: "correct" | "incorrect" | "unattempted" };
@@ -34,6 +35,8 @@ export function ResultPdfDialog({
     correct: items.filter((i) => i.status === "correct").length,
     all: items.length,
   };
+
+  const ambiguous = items.filter((i) => findAmbiguous(i.sol.question_en).length > 0).length;
 
   const run = async (kind: PdfKind) => {
     const selected =
@@ -109,6 +112,11 @@ export function ResultPdfDialog({
           </div>
         ) : (
           <div className="space-y-2">
+            {ambiguous > 0 && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                {ambiguous} question{ambiguous > 1 ? "s have" : " has"} notation that could not be auto-corrected; it will print as written.
+              </p>
+            )}
             <Row
               icon={<XCircle className="size-4 text-destructive" />}
               label="Wrong Answers"

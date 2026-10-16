@@ -7,6 +7,7 @@ import {
   adminUploadQuestionImage,
 } from "@/lib/tests.functions";
 import {
+  correctDraft,
   emptyDraft,
   findDuplicateKeys,
   indexToLetter,
@@ -16,6 +17,7 @@ import {
   validateDrafts,
   type DraftQuestion,
 } from "@/lib/bulk-questions";
+import { findAmbiguous } from "@/lib/sci-symbols";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -136,7 +138,7 @@ export function BulkQuestionsDialog({
         },
       }),
     onSuccess: (qs) => {
-      const parsed = qs.map((q) => ({ ...q, key: newKey() })) as DraftQuestion[];
+      const parsed = (qs.map((q) => ({ ...q, key: newKey() })) as DraftQuestion[]).map(correctDraft);
       setDrafts((d) => [...d, ...parsed]);
       toast.success(`${parsed.length} questions generated`);
     },
@@ -168,6 +170,28 @@ export function BulkQuestionsDialog({
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const ambiguous = useMemo(
+    () =>
+      drafts.flatMap((q, i) =>
+        [q.question_en, ...q.options_en, q.solution_en ?? ""].flatMap(findAmbiguous).map((m) => `Q${i + 1}: ${m}`),
+      ),
+    [drafts],
+  );
+
+  const downloadCsv = () => {
+    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const head = ["Question", "Option A", "Option B", "Option C", "Option D", "Correct Answer", "Marks", "Negative Marks", "Explanation", "Question Image URL"];
+    const lines = drafts.map((q) =>
+      [q.question_en, q.options_en[0], q.options_en[1], q.options_en[2], q.options_en[3], indexToLetter(q.correct_option), q.positive_marks ?? "", q.negative_marks ?? "", q.solution_en ?? "", q.image_url ?? ""].map(esc).join(","),
+    );
+    const blob = new Blob(["\uFEFF" + [head.map(esc).join(","), ...lines].join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "corrected_questions.csv";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
 
   const update = (key: string, patch: Partial<DraftQuestion>) =>
     setDrafts((d) => d.map((q) => (q.key === key ? { ...q, ...patch } : q)));
@@ -323,7 +347,17 @@ export function BulkQuestionsDialog({
               <Button size="sm" variant="outline" onClick={() => setDrafts((d) => [...d, emptyDraft()])}>
                 Add blank
               </Button>
+              <Button size="sm" variant="outline" onClick={downloadCsv}>
+                <FileSpreadsheet className="size-4 mr-1" /> Download corrected CSV
+              </Button>
             </div>
+            <p className="text-xs text-muted-foreground">Scientific symbols (ε₀, λ, 10⁻¹², ×, ≤ …) are corrected automatically.</p>
+            {ambiguous.length > 0 && (
+              <p className="text-xs text-destructive flex items-start gap-1">
+                <AlertTriangle className="size-3.5 mt-0.5 shrink-0" />
+                Please check: {ambiguous.slice(0, 5).join(" · ")}{ambiguous.length > 5 ? ` (+${ambiguous.length - 5} more)` : ""}
+              </p>
+            )}
 
             <div className="space-y-3 max-h-[45vh] overflow-y-auto pr-1">
               {drafts.map((q, i) => (
