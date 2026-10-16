@@ -533,7 +533,7 @@ export const revealAnswer = createServerFn({ method: "POST" })
     // Answer is locked once checked: a previously revealed question keeps its saved answer.
     if (!checked[data.questionId]) answers[data.questionId] = data.answer;
     const raw = answers[data.questionId] ?? null;
-    if (raw === null || raw === "") throw new Error("Select an answer first");
+    // Revealing with no option selected is allowed: the question stays unanswered (no marks).
     checked[data.questionId] = true;
 
     const { data: q } = await supabaseAdmin

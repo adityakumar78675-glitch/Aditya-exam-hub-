@@ -257,7 +257,7 @@ function AttemptPage() {
 
   const statusOf = (qq: SafeQuestion): Status => {
     const rv = reveals[qq.id];
-    if (checked[qq.id] && rv) return rv.verdict === true ? "checked-correct" : "checked-wrong";
+    if (checked[qq.id] && rv && rv.verdict !== null) return rv.verdict === true ? "checked-correct" : "checked-wrong";
     const a = answers[qq.id];
     const answered = a !== undefined && a !== null && a !== "";
     const m = !!marked[qq.id];
@@ -305,7 +305,7 @@ function AttemptPage() {
   };
 
   const showAnswer = async () => {
-    if (!canShowAnswer || isChecked || !answeredCurrent || revealing) return;
+    if (!canShowAnswer || isChecked || revealing) return;
     setRevealing(true);
     try {
       await flush();
@@ -580,12 +580,12 @@ function AttemptPage() {
               >
                 <p className="font-bold">
                   {currentReveal.verdict === true
-                    ? "✅ Correct Answer — Correct! 🎉"
+                    ? "✅ Correct Answer"
                     : currentReveal.verdict === false
-                      ? "❌ Wrong Answer"
-                      : "Answer checked"}
+                      ? "❌ Incorrect Answer"
+                      : "Answer Revealed — No option selected"}
                 </p>
-                {currentReveal.verdict === false && (
+                {(
                   <p className="mt-1 text-sm">
                     Correct Answer:{" "}
                     <span className="font-semibold">
@@ -656,7 +656,7 @@ function AttemptPage() {
               variant={isChecked ? "secondary" : "outline"}
               size="sm"
               onClick={() => void showAnswer()}
-              disabled={isChecked || !answeredCurrent || revealing}
+              disabled={isChecked || revealing}
             >
               <Eye className="size-4 mr-1" />
               {isChecked ? "Answer Checked" : revealing ? "Checking..." : "Show Answer"}
