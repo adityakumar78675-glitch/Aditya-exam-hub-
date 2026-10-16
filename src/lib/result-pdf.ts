@@ -1,5 +1,6 @@
 import type { jsPDF as JsPdfType } from "jspdf";
 import pdfFontUrl from "@/assets/fonts/NotoSans-Regular.ttf?url";
+import pdfBoldFontUrl from "@/assets/fonts/NotoSans-Bold.ttf?url";
 
 export type PdfSolution = {
   number: number;
@@ -41,33 +42,27 @@ export type PdfKind = "wrong" | "correct" | "all";
 type Status = "correct" | "incorrect" | "unattempted";
 type RGB = readonly [number, number, number];
 
+/** Notebook palette — plain RGB only (no lab/oklch). */
 const C = {
-  navy: [20, 54, 96] as RGB,
-  blue: [27, 104, 180] as RGB,
-  bluePale: [236, 246, 255] as RGB,
-  ink: [25, 35, 49] as RGB,
-  muted: [91, 106, 124] as RGB,
-  line: [210, 220, 231] as RGB,
-  white: [255, 255, 255] as RGB,
-  green: [22, 128, 76] as RGB,
-  greenPale: [232, 247, 238] as RGB,
-  greenLine: [164, 218, 185] as RGB,
-  red: [190, 53, 61] as RGB,
-  redPale: [253, 237, 239] as RGB,
-  redLine: [239, 184, 188] as RGB,
-  greyPale: [241, 245, 249] as RGB,
-  greyLine: [198, 210, 222] as RGB,
-  gold: [239, 177, 42] as RGB,
+  heading: [0x12, 0x36, 0x6b] as RGB,
+  ink: [0x11, 0x11, 0x11] as RGB,
+  rule: [0xb8, 0xdc, 0xe8] as RGB,
+  margin: [0xd9, 0x82, 0x82] as RGB,
+  muted: [0x55, 0x5f, 0x6b] as RGB,
+  green: [0x15, 0x80, 0x3d] as RGB,
+  red: [0xb9, 0x1c, 0x1c] as RGB,
 };
 
 const A4_W = 595.28;
 const A4_H = 841.89;
-const M = 34;
-const BODY_W = A4_W - M * 2;
-const HEADER_H = 42;
-const FOOTER_H = 28;
-const BODY_TOP = M + HEADER_H;
-const BODY_BOTTOM = A4_H - M - FOOTER_H;
+const MARGIN_L = 50; // red vertical line (left)
+const MARGIN_R = A4_W - 30; // red vertical line (right)
+const TEXT_X = MARGIN_L + 8;
+const TEXT_W = MARGIN_R - 8 - TEXT_X;
+const RULE = 20; // ruled line spacing
+const FIRST_RULE = 72; // first ruled line y
+const CONTENT_TOP = FIRST_RULE + RULE * 3; // after header block
+const CONTENT_BOTTOM = A4_H - RULE * 2;
 const FONT = "AEH-Noto";
 
 export function statusFromVerdict(verdict: boolean | null, your: PdfSolution["your_answer"]): Status {
@@ -76,9 +71,14 @@ export function statusFromVerdict(verdict: boolean | null, your: PdfSolution["yo
 }
 
 export function pdfFileName(kind: PdfKind, testTitle: string): string {
-  const safe = testTitle.replace(/[^\p{L}\p{N}]+/gu, "").slice(0, 60) || "Test";
-  const label = kind === "wrong" ? "WrongAnswers" : kind === "correct" ? "CorrectAnswers" : "AllAnswers";
-  return `AdityaExamHub_${label}_${safe}.pdf`;
+  const safe =
+    testTitle
+      .trim()
+      .replace(/[^\p{L}\p{N}]+/gu, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 60) || "Test";
+  const label = kind === "wrong" ? "Wrong_Answers" : kind === "correct" ? "Correct_Answers" : "All_Answers";
+  return `AdityaExamHub_${safe}_${label}.pdf`;
 }
 
 function plainText(input: string | null | undefined): string {
@@ -180,405 +180,165 @@ async function loadImage(url: string, timeoutMs = 8000): Promise<{ data: string;
   }
 }
 
-function drawLogo(pdf: JsPdfType, x: number, y: number, scale = 1) {
-  setFill(pdf, C.navy);
-  pdf.rect(x, y + 3 * scale, 20 * scale, 11 * scale, "F");
-  setFill(pdf, C.gold);
-  pdf.triangle(x - 2 * scale, y + 3 * scale, x + 10 * scale, y - 2 * scale, x + 22 * scale, y + 3 * scale, "F");
-  setFill(pdf, C.blue);
-  pdf.rect(x + 4 * scale, y + 14 * scale, 12 * scale, 3 * scale, "F");
+function setDraw(pdf: JsPdfType, color: RGB) { pdf.setDrawColor(color[0], color[1], color[2]); }
+function setText(pdf: JsPdfType, color: RGB) { pdf.setTextColor(color[0], color[1], color[2]); }
+
+function base64FromBuffer(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(binary);
+}
+
+async function installFonts(pdf: JsPdfType) {
+  const [reg, bold] = await Promise.all([fetch(pdfFontUrl), fetch(pdfBoldFontUrl)]);
+  if (!reg.ok || !bold.ok) throw new Error("Could not load the PDF fonts");
+  pdf.addFileToVFS("AEH-Noto.ttf", base64FromBuffer(await reg.arrayBuffer()));
+  pdf.addFont("AEH-Noto.ttf", FONT, "normal");
+  pdf.addFileToVFS("AEH-Noto-Bold.ttf", base64FromBuffer(await bold.arrayBuffer()));
+  pdf.addFont("AEH-Noto-Bold.ttf", FONT, "bold");
+  pdf.setFont(FONT, "normal");
 }
 
 const DEVANAGARI = /[\u0900-\u097F]/;
 
-/** jsPDF cannot shape Devanagari, so Hindi lines are painted through canvas (which shapes correctly). */
-function shapedLineImage(text: string, sizePt: number, color: RGB) {
+/** jsPDF cannot shape Devanagari, so Hindi runs are painted through canvas (which shapes correctly). */
+function shapedImage(text: string, sizePt: number, color: RGB, bold: boolean) {
   const S = 4;
   const canvas = document.createElement("canvas");
   const measure = canvas.getContext("2d");
   if (!measure) return null;
-  const font = `${sizePt * S}px "Noto Sans Devanagari", "Nirmala UI", "Mangal", sans-serif`;
+  const font = `${bold ? "700 " : ""}${sizePt * S}px "Noto Sans Devanagari", "Nirmala UI", "Mangal", sans-serif`;
   measure.font = font;
-  const textW = Math.ceil(measure.measureText(text).width) + S * 2;
-  const boxH = Math.ceil(sizePt * S * 1.55);
-  canvas.width = Math.max(4, textW);
-  canvas.height = boxH;
+  canvas.width = Math.max(4, Math.ceil(measure.measureText(text).width) + S * 2);
+  canvas.height = Math.ceil(sizePt * S * 1.55);
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.font = font;
   ctx.fillStyle = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
-  ctx.textBaseline = "alphabetic";
   ctx.fillText(text, S, sizePt * S * 1.12);
-  return { data: canvas.toDataURL("image/png"), w: canvas.width / S, h: boxH / S, ascent: sizePt * 1.12 };
+  return { data: canvas.toDataURL("image/png"), w: canvas.width / S, h: canvas.height / S, ascent: sizePt * 1.12 };
 }
 
-function drawLine(pdf: JsPdfType, text: string, x: number, baselineY: number, size: number, color: RGB, maxWidth: number) {
-  if (!DEVANAGARI.test(text)) {
-    pdf.setFontSize(size);
-    setText(pdf, color);
-    pdf.text(text, x, baselineY, { maxWidth });
-    return;
-  }
-  const image = shapedLineImage(text, size, color);
-  if (!image) {
-    pdf.setFontSize(size);
-    setText(pdf, color);
-    pdf.text(text, x, baselineY, { maxWidth });
-    return;
-  }
-  const scale = image.w > maxWidth ? maxWidth / image.w : 1;
-  pdf.addImage(image.data, "PNG", x, baselineY - image.ascent * scale, image.w * scale, image.h * scale, undefined, "FAST");
+type Style = { size: number; color: RGB; bold: boolean };
+
+function textWidth(pdf: JsPdfType, text: string, st: Style) {
+  pdf.setFont(FONT, st.bold ? "bold" : "normal");
+  pdf.setFontSize(st.size);
+  return pdf.getTextWidth(text);
 }
 
-function drawLines(
-  pdf: JsPdfType,
-  textLines: string[],
-  x: number,
-  firstBaseline: number,
-  lineHeight: number,
-  size: number,
-  color: RGB,
-  maxWidth: number,
-) {
-  textLines.forEach((line, i) => drawLine(pdf, line, x, firstBaseline + i * lineHeight, size, color, maxWidth));
+/** Draws one run at a baseline; returns its width. */
+function drawRun(pdf: JsPdfType, text: string, x: number, baseline: number, st: Style, maxWidth: number): number {
+  if (DEVANAGARI.test(text)) {
+    const img = shapedImage(text, st.size, st.color, st.bold);
+    if (img) {
+      const scale = img.w > maxWidth ? maxWidth / img.w : 1;
+      pdf.addImage(img.data, "PNG", x, baseline - img.ascent * scale, img.w * scale, img.h * scale, undefined, "FAST");
+      return img.w * scale;
+    }
+  }
+  pdf.setFont(FONT, st.bold ? "bold" : "normal");
+  pdf.setFontSize(st.size);
+  setText(pdf, st.color);
+  pdf.text(text, x, baseline);
+  return pdf.getTextWidth(text);
 }
 
-function drawStatusMark(pdf: JsPdfType, status: Status, cx: number, cy: number, color: RGB) {
-  setDraw(pdf, color);
-  pdf.setLineWidth(1.2);
-  if (status === "correct") {
-    pdf.line(cx - 3.2, cy, cx - 1, cy + 2.6);
-    pdf.line(cx - 1, cy + 2.6, cx + 3.4, cy - 3);
-  } else if (status === "incorrect") {
-    pdf.line(cx - 3, cy - 3, cx + 3, cy + 3);
-    pdf.line(cx + 3, cy - 3, cx - 3, cy + 3);
-  } else {
-    pdf.circle(cx, cy, 3, "S");
+function wrap(pdf: JsPdfType, text: string, width: number, st: Style): string[] {
+  pdf.setFont(FONT, st.bold ? "bold" : "normal");
+  pdf.setFontSize(st.size);
+  const out: string[] = [];
+  for (const para of (plainText(text) || " ").split(/\n+/)) {
+    out.push(...(pdf.splitTextToSize(para || " ", width) as string[]));
   }
+  return out;
+}
+
+/** A labelled paragraph: "Label: text" with hanging indent, one ruled line per text line. */
+type Block = { label: string; labelStyle: Style; text: string; textStyle: Style };
+function layoutBlock(pdf: JsPdfType, b: Block) {
+  const lw = textWidth(pdf, b.label + " ", b.labelStyle);
+  return { lw, lines: wrap(pdf, b.text, TEXT_W - lw, b.textStyle) };
+}
+
+function drawPaper(pdf: JsPdfType, meta: PdfMeta, page: number) {
+  // ruled lines
+  setDraw(pdf, C.rule);
+  pdf.setLineWidth(0.6);
+  for (let y = FIRST_RULE; y < A4_H; y += RULE) pdf.line(0, y, A4_W, y);
+  // red margins
+  setDraw(pdf, C.margin);
   pdf.setLineWidth(0.8);
-}
+  pdf.line(MARGIN_L, 0, MARGIN_L, A4_H);
+  pdf.line(MARGIN_R, 0, MARGIN_R, A4_H);
 
-function kindLabel(kind: PdfKind) {
-  return kind === "wrong" ? "WRONG ANSWERS" : kind === "correct" ? "CORRECT ANSWERS" : "ALL ANSWERS";
-}
+  // page number top-right with underline
+  const pageLabel = `Page ${page}`;
+  const pw = textWidth(pdf, pageLabel, { size: 10, color: C.ink, bold: false });
+  drawRun(pdf, pageLabel, MARGIN_R - 10 - pw, 30, { size: 10, color: C.ink, bold: false }, 100);
+  setDraw(pdf, C.rule);
+  pdf.setLineWidth(0.6);
+  pdf.line(MARGIN_R - 16 - pw, 35, MARGIN_R - 4, 35);
 
-function pageHeader(pdf: JsPdfType, meta: PdfMeta, kind: PdfKind, page: number) {
-  if (page === 1) return;
-  drawLogo(pdf, M, 22, 0.7);
-  pdf.setFontSize(11);
-  setText(pdf, C.navy);
-  pdf.text("ADITYA EXAM HUB", M + 19, 31);
-  pdf.setFontSize(8);
-  setText(pdf, C.muted);
-  pdf.text(kindLabel(kind), A4_W - M, 25, { align: "right" });
-  pdf.text(plainText(meta.testTitle), A4_W - M, 35, { align: "right", maxWidth: 250 });
-  setDraw(pdf, C.line);
-  pdf.line(M, 46, A4_W - M, 46);
-}
-
-function newPage(pdf: JsPdfType, meta: PdfMeta, kind: PdfKind) {
-  pdf.addPage();
-  pageHeader(pdf, meta, kind, pdf.getNumberOfPages());
-  return BODY_TOP;
-}
-
-function firstPage(pdf: JsPdfType, meta: PdfMeta, kind: PdfKind, count: number): number {
-  setFill(pdf, C.navy);
-  pdf.rect(0, 0, A4_W, 96, "F");
-  drawLogo(pdf, M, 25, 1.25);
-  setText(pdf, C.white);
-  pdf.setFontSize(19);
-  pdf.text("ADITYA EXAM HUB", M + 36, 39);
-  pdf.setFontSize(8.5);
-  pdf.text("Learn Today, Excel Tomorrow", M + 36, 55);
-  pdf.setFontSize(15);
-  pdf.text("TEST PERFORMANCE REPORT", A4_W - M, 37, { align: "right" });
-  pdf.setFontSize(9);
-  pdf.text(kindLabel(kind), A4_W - M, 54, { align: "right" });
-
-  let y = 118;
-  pdf.setFontSize(17);
-  setText(pdf, C.ink);
-  pdf.text(plainText(meta.testTitle), M, y, { maxWidth: BODY_W });
-  y += 19;
-  pdf.setFontSize(9);
-  setText(pdf, C.muted);
-  pdf.text(`Subject: ${plainText(meta.subject || "General")}`, M, y);
-  pdf.text(`Chapter: ${plainText(meta.chapter || "All chapters")}`, A4_W / 2, y);
-
-  y += 18;
-  setFill(pdf, C.bluePale);
-  setDraw(pdf, C.line);
-  pdf.roundedRect(M, y, BODY_W, 48, 5, 5, "FD");
-  pdf.setFontSize(8);
-  setText(pdf, C.muted);
-  pdf.text("STUDENT", M + 12, y + 14);
-  pdf.text("ATTEMPT", M + 255, y + 14);
-  pdf.text("ATTEMPT DATE", M + 345, y + 14);
-  pdf.setFontSize(10.5);
-  setText(pdf, C.ink);
-  pdf.text(plainText(meta.studentName), M + 12, y + 32, { maxWidth: 225 });
-  pdf.text(String(meta.attemptNumber), M + 255, y + 32);
-  pdf.text(plainText(meta.date), M + 345, y + 32, { maxWidth: 150 });
-
-  y += 64;
-  pdf.setFontSize(11);
-  setText(pdf, C.navy);
-  pdf.text("PERFORMANCE SUMMARY", M, y);
-  y += 10;
-  const metrics = [
-    ["TOTAL", meta.totalQuestions, C.blue, C.bluePale],
-    ["ATTEMPTED", meta.attempted, C.navy, C.greyPale],
-    ["CORRECT", meta.correct, C.green, C.greenPale],
-    ["WRONG", meta.incorrect, C.red, C.redPale],
-    ["UNATTEMPTED", meta.unattempted, C.muted, C.greyPale],
-  ] as const;
-  const gap = 7;
-  const cardW = (BODY_W - gap * 4) / 5;
-  metrics.forEach(([label, value, color, bg], i) => {
-    const x = M + i * (cardW + gap);
-    setFill(pdf, bg);
-    setDraw(pdf, color);
-    pdf.roundedRect(x, y, cardW, 53, 4, 4, "FD");
-    pdf.setFontSize(7);
-    setText(pdf, C.muted);
-    pdf.text(label, x + cardW / 2, y + 16, { align: "center" });
-    pdf.setFontSize(17);
-    setText(pdf, color);
-    pdf.text(String(value), x + cardW / 2, y + 39, { align: "center" });
-  });
-
-  y += 64;
-  setFill(pdf, C.navy);
-  pdf.roundedRect(M, y, BODY_W, 49, 5, 5, "F");
-  setText(pdf, C.white);
-  pdf.setFontSize(8);
-  pdf.text("SCORE", M + 18, y + 16);
-  pdf.text("ACCURACY", M + 205, y + 16);
-  pdf.text("QUESTIONS IN THIS PDF", M + 370, y + 16);
-  pdf.setFontSize(15);
-  pdf.text(`${meta.score} / ${meta.totalMarks}`, M + 18, y + 37);
-  pdf.text(`${meta.accuracy}%`, M + 205, y + 37);
-  pdf.text(String(count), M + 370, y + 37);
-  y += 67;
-  setText(pdf, C.navy);
-  pdf.setFontSize(11);
-  pdf.text(kindLabel(kind), M, y);
-  setDraw(pdf, kind === "wrong" ? C.red : kind === "correct" ? C.green : C.blue);
-  pdf.setLineWidth(2);
-  pdf.line(M, y + 7, M + 90, y + 7);
-  return y + 20;
-}
-
-function lines(pdf: JsPdfType, text: string, width: number, size: number): string[] {
-  pdf.setFontSize(size);
-  return pdf.splitTextToSize(plainText(text) || " ", width) as string[];
+  // heading
+  drawRun(pdf, "REFERENCE PAGE (Question & Answer)", TEXT_X, FIRST_RULE - 5, { size: 20, color: C.heading, bold: true }, TEXT_W);
+  // subject line
+  const subject = plainText(meta.subject || "General");
+  const title = plainText(meta.testTitle || "Revision");
+  const subjStyle: Style = { size: 13, color: C.ink, bold: true };
+  const w = drawRun(pdf, "Subject: ", TEXT_X, FIRST_RULE + RULE - 5, subjStyle, TEXT_W);
+  const value = wrap(pdf, `${subject} (${title})`, TEXT_W - w, { size: 13, color: C.ink, bold: false })[0] ?? "";
+  drawRun(pdf, value, TEXT_X + w, FIRST_RULE + RULE - 5, { size: 13, color: C.ink, bold: false }, TEXT_W - w);
+  // divider under header
+  setDraw(pdf, C.heading);
+  pdf.setLineWidth(0.9);
+  pdf.line(TEXT_X, FIRST_RULE + RULE + 4, MARGIN_R - 8, FIRST_RULE + RULE + 4);
 }
 
 function answerText(s: PdfSolution, opts: string[], value: PdfSolution["your_answer"]): string {
   if (value === null || value === "") return "Not Attempted";
   if (s.type === "mcq") {
     const i = Number(value);
-    return `${Number.isFinite(i) ? String.fromCharCode(65 + i) : "?"}. ${opts[i] ?? ""}`;
+    return Number.isFinite(i) ? `(${String.fromCharCode(65 + i)}) ${opts[i] ?? ""}` : String(value);
   }
   if (s.type === "truefalse") return value === true || value === "true" ? "True" : "False";
   return String(value);
 }
 
-function correctText(s: PdfSolution, opts: string[]): string {
-  if (s.type === "mcq" && s.correct_option !== null) return `${String.fromCharCode(65 + s.correct_option)}. ${opts[s.correct_option] ?? ""}`;
+function correctText(s: PdfSolution, opts: string[]): string | null {
+  if (s.type === "mcq" && s.correct_option !== null) return `(${String.fromCharCode(65 + s.correct_option)}) ${opts[s.correct_option] ?? ""}`;
   if (s.type === "numerical" && s.correct_numeric !== null) return String(s.correct_numeric);
   if (s.type === "truefalse" && s.correct_bool !== null) return s.correct_bool ? "True" : "False";
-  return s.type === "subjective" ? "Evaluated manually" : "—";
+  return null;
 }
 
-function optionHeight(pdf: JsPdfType, text: string) {
-  return Math.max(25, lines(pdf, text, BODY_W - 76, 9.2).length * 12 + 12);
-}
+const Q_LABEL: Style = { size: 12.5, color: C.heading, bold: true };
+const Q_TEXT: Style = { size: 12.5, color: C.ink, bold: true };
+const A_LABEL: Style = { size: 12, color: C.ink, bold: true };
+const A_TEXT: Style = { size: 12, color: C.ink, bold: false };
+const E_LABEL: Style = { size: 10.5, color: C.heading, bold: true };
+const E_TEXT: Style = { size: 10.5, color: C.ink, bold: false };
 
-function estimateQuestion(pdf: JsPdfType, s: PdfSolution, lang: "en" | "hi") {
+function blocksFor(kind: PdfKind, s: PdfSolution, status: Status, lang: "en" | "hi", qNo: number): Block[] {
   const question = (lang === "hi" && s.question_hi) || s.question_en;
-  const opts = lang === "hi" && s.options_hi.length === s.options_en.length && s.options_hi.length ? s.options_hi : s.options_en;
-  const explanation = (lang === "hi" && s.solution_hi) || s.solution_en || "Explanation not available.";
-  const questionH = lines(pdf, question, BODY_W - 42, 10.5).length * 14;
-  const optionsH = s.type === "mcq" ? opts.reduce((sum, o) => sum + optionHeight(pdf, o) + 4, 0) : 0;
-  const explanationH = Math.max(42, lines(pdf, explanation, BODY_W - 48, 8.8).length * 12 + 29);
-  return { question, opts, explanation, height: 53 + questionH + optionsH + 40 + explanationH };
-}
-
-async function drawQuestion(
-  pdf: JsPdfType,
-  meta: PdfMeta,
-  kind: PdfKind,
-  s: PdfSolution,
-  status: Status,
-  lang: "en" | "hi",
-  startY: number,
-): Promise<number> {
-  const info = estimateQuestion(pdf, s, lang);
-  let y = startY;
-  const maxCard = BODY_BOTTOM - BODY_TOP;
-  if (info.height <= maxCard && y + info.height > BODY_BOTTOM) y = newPage(pdf, meta, kind);
-
-  const tone = status === "correct" ? C.green : status === "incorrect" ? C.red : C.muted;
-  const pale = status === "correct" ? C.greenPale : status === "incorrect" ? C.redPale : C.greyPale;
-  const border = status === "correct" ? C.greenLine : status === "incorrect" ? C.redLine : C.greyLine;
-  const cardTop = y;
-  const canSingleCard = info.height <= maxCard;
-  if (canSingleCard) {
-    setFill(pdf, C.white);
-    setDraw(pdf, border);
-    pdf.setLineWidth(0.8);
-    pdf.roundedRect(M, y, BODY_W, info.height - 5, 5, 5, "FD");
-    setFill(pdf, pale);
-    pdf.roundedRect(M, y, BODY_W, 35, 5, 5, "F");
-  }
-
-  const ensure = (needed: number) => {
-    if (y + needed <= BODY_BOTTOM) return;
-    y = newPage(pdf, meta, kind);
-  };
-
-  ensure(48);
-  setFill(pdf, tone);
-  pdf.circle(M + 17, y + 17, 11, "F");
-  setText(pdf, C.white);
-  pdf.setFontSize(8.5);
-  pdf.text(`Q${s.number}`, M + 17, y + 20, { align: "center" });
-  setText(pdf, C.ink);
-  pdf.setFontSize(8);
-  pdf.text(`+${s.positive_marks} / -${s.negative_marks}`, A4_W - M - 104, y + 20, { align: "right" });
-  setFill(pdf, pale);
-  setDraw(pdf, tone);
-  pdf.roundedRect(A4_W - M - 96, y + 8, 88, 19, 4, 4, "FD");
-  drawStatusMark(pdf, status, A4_W - M - 85, y + 17.5, tone);
-  setText(pdf, tone);
-  pdf.setFontSize(8);
-  const statusLabel = status === "correct" ? "CORRECT" : status === "incorrect" ? "WRONG" : "UNATTEMPTED";
-  pdf.text(statusLabel, A4_W - M - 46, y + 20.5, { align: "center" });
-  y += 42;
-
-  const qLines = lines(pdf, info.question, BODY_W - 34, 10.5);
-  drawLines(pdf, qLines, M + 17, y, 14, 10.5, C.ink, BODY_W - 34);
-  y += qLines.length * 14 + 7;
-
-  if (s.image_url) {
-    const image = await loadImage(s.image_url);
-    if (image) {
-      const maxW = Math.min(310, BODY_W - 34);
-      const maxH = 190;
-      const scale = Math.min(maxW / image.width, maxH / image.height, 1);
-      const w = image.width * scale;
-      const h = image.height * scale;
-      ensure(h + 12);
-      pdf.addImage(image.data, image.format, M + 17, y, w, h, undefined, "FAST");
-      y += h + 9;
-    } else {
-      ensure(18);
-      pdf.setFontSize(8);
-      setText(pdf, C.muted);
-      pdf.text("Image unavailable", M + 17, y + 9);
-      y += 18;
-    }
-  }
-
+  const opts = lang === "hi" && s.options_hi.length && s.options_hi.length === s.options_en.length ? s.options_hi : s.options_en;
+  const explanation = ((lang === "hi" && s.solution_hi) || s.solution_en || "").trim();
+  const correct = correctText(s, opts);
+  const out: Block[] = [{ label: `Q${qNo}:`, labelStyle: Q_LABEL, text: question, textStyle: Q_TEXT }];
   if (s.type === "mcq") {
-    const yourIndex = s.your_answer === null || s.your_answer === "" ? null : Number(s.your_answer);
-    for (let i = 0; i < info.opts.length; i++) {
-      const option = info.opts[i] ?? "";
-      const isCorrect = s.correct_option === i;
-      const isYours = yourIndex === i;
-      const h = optionHeight(pdf, option);
-      ensure(h + 5);
-      const optionBg = isCorrect ? C.greenPale : isYours ? C.redPale : C.white;
-      const optionBorder = isCorrect ? C.greenLine : isYours ? C.redLine : C.line;
-      setFill(pdf, optionBg);
-      setDraw(pdf, optionBorder);
-      pdf.roundedRect(M + 16, y, BODY_W - 32, h, 4, 4, "FD");
-      setFill(pdf, isCorrect ? C.green : isYours ? C.red : C.greyPale);
-      pdf.circle(M + 31, y + h / 2, 8, "F");
-      setText(pdf, isCorrect || isYours ? C.white : C.ink);
-      pdf.setFontSize(8.5);
-      pdf.text(String.fromCharCode(65 + i), M + 31, y + h / 2 + 3, { align: "center" });
-      const optionLines = lines(pdf, option, BODY_W - 116, 9.2);
-      drawLines(pdf, optionLines, M + 45, y + 18.5, 11.5, 9.2, C.ink, BODY_W - 116);
-      if (isCorrect || isYours) {
-        pdf.setFontSize(7.3);
-        setText(pdf, isCorrect ? C.green : C.red);
-        const badge = isCorrect && isYours ? "YOUR + CORRECT" : isCorrect ? "CORRECT ANSWER" : "YOUR ANSWER";
-        pdf.text(badge, A4_W - M - 12, y + h / 2 + 2.5, { align: "right" });
-      }
-      y += h + 4;
-    }
+    opts.forEach((o, i) => out.push({ label: `(${String.fromCharCode(65 + i)})`, labelStyle: A_TEXT, text: o, textStyle: A_TEXT }));
   }
-
-  ensure(36);
-  const your = plainText(answerText(s, info.opts, s.your_answer));
-  const correct = plainText(correctText(s, info.opts));
-  const yourTone = status === "correct" ? C.green : status === "incorrect" ? C.red : C.muted;
-  drawLine(pdf, `Your Answer: ${your}`, M + 17, y + 12, 8.5, yourTone, BODY_W / 2 - 20);
-  drawLine(pdf, `Correct Answer: ${correct}`, M + BODY_W / 2, y + 12, 8.5, C.green, BODY_W / 2 - 18);
-  y += 28;
-
-  const explanationLines = lines(pdf, info.explanation, BODY_W - 52, 8.8);
-  const chunks: string[][] = [];
-  let remaining = [...explanationLines];
-  while (remaining.length) {
-    const availableLines = Math.max(1, Math.floor((BODY_BOTTOM - y - 30) / 12));
-    chunks.push(remaining.splice(0, availableLines));
-    if (remaining.length) y = newPage(pdf, meta, kind);
+  if (kind === "correct") {
+    out.push({ label: "Ans:", labelStyle: A_LABEL, text: correct ?? answerText(s, opts, s.your_answer), textStyle: A_TEXT });
+  } else {
+    const verdict = status === "correct" ? "  (Correct)" : status === "incorrect" ? "  (Wrong)" : "";
+    const yourColor = status === "correct" ? C.green : status === "incorrect" ? C.red : C.muted;
+    out.push({ label: "Your Answer:", labelStyle: A_LABEL, text: answerText(s, opts, s.your_answer) + verdict, textStyle: { ...A_TEXT, color: yourColor } });
+    out.push({ label: "Ans:", labelStyle: A_LABEL, text: correct ?? "Evaluated manually", textStyle: A_TEXT });
   }
-  if (!chunks.length) chunks.push(["Explanation not available."]);
-  for (let i = 0; i < chunks.length; i++) {
-    const chunk = chunks[i]!;
-    const h = Math.max(42, chunk.length * 12 + 28);
-    ensure(h);
-    setFill(pdf, C.bluePale);
-    setDraw(pdf, C.line);
-    pdf.roundedRect(M + 16, y, BODY_W - 32, h, 4, 4, "FD");
-    setFill(pdf, C.blue);
-    pdf.circle(M + 30, y + 14, 7, "F");
-    setText(pdf, C.white);
-    pdf.setFontSize(8);
-    pdf.text("i", M + 30, y + 17, { align: "center" });
-    setText(pdf, C.blue);
-    pdf.setFontSize(8.3);
-    pdf.text(i === 0 ? "EXPLANATION" : "EXPLANATION (CONTINUED)", M + 41, y + 17);
-    drawLines(pdf, chunk, M + 26, y + 31, 12, 8.8, C.ink, BODY_W - 52);
-    y += h + 6;
-  }
-
-  if (canSingleCard) return cardTop + info.height + 5;
-  return y + 4;
-}
-
-function addFooters(pdf: JsPdfType, meta: PdfMeta) {
-  const total = pdf.getNumberOfPages();
-  for (let page = 1; page <= total; page++) {
-    pdf.setPage(page);
-    setDraw(pdf, C.line);
-    pdf.setLineWidth(0.5);
-    pdf.line(M, A4_H - 36, A4_W - M, A4_H - 36);
-    pdf.setFontSize(7.5);
-    setText(pdf, C.muted);
-    pdf.text(plainText(meta.testTitle), M, A4_H - 22, { maxWidth: 220 });
-    pdf.text("Small Steps. Big Results.", A4_W / 2, A4_H - 22, { align: "center" });
-    pdf.text(`Page ${page} of ${total}`, A4_W - M, A4_H - 22, { align: "right" });
-  }
-}
-
-function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.rel = "noopener";
-  anchor.style.display = "none";
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  if (explanation) out.push({ label: "Explanation:", labelStyle: E_LABEL, text: explanation, textStyle: E_TEXT });
+  return out;
 }
 
 export async function generateResultPdf(opts: {
@@ -588,34 +348,75 @@ export async function generateResultPdf(opts: {
   lang: "en" | "hi";
   onProgress?: (done: number, total: number) => void;
 }): Promise<void> {
-  console.info("[result-pdf] generator v2 (native jsPDF) called", {
-    kind: opts.kind,
-    questions: opts.items.length,
-    test: opts.meta.testTitle,
-    attemptNumber: opts.meta.attemptNumber,
-  });
+  console.info("[result-pdf] notebook generator called", { kind: opts.kind, questions: opts.items.length, test: opts.meta.testTitle });
   const { jsPDF } = await import("jspdf");
-  const pdf = new jsPDF({ unit: "pt", format: "a4", compress: true, putOnlyUsedFonts: true });
-  await installFont(pdf);
-  pdf.setProperties({
-    title: `${kindLabel(opts.kind)} - ${opts.meta.testTitle}`,
-    subject: "Aditya Exam Hub test performance report",
-    author: "Aditya Exam Hub",
-    creator: "Aditya Exam Hub",
-  });
+  const pdf = new jsPDF({ unit: "pt", format: "a4", orientation: "portrait", compress: true, putOnlyUsedFonts: true });
+  await installFonts(pdf);
+  pdf.setProperties({ title: `Reference Page - ${opts.meta.testTitle}`, author: "Aditya Exam Hub", creator: "Aditya Exam Hub" });
 
-  let y = firstPage(pdf, opts.meta, opts.kind, opts.items.length);
+  let page = 1;
+  drawPaper(pdf, opts.meta, page);
+  // y = the ruled line the next text line sits on
+  let y = CONTENT_TOP;
+  const nextPage = () => {
+    pdf.addPage();
+    page += 1;
+    drawPaper(pdf, opts.meta, page);
+    y = CONTENT_TOP;
+  };
+  const capacity = Math.floor((CONTENT_BOTTOM - CONTENT_TOP) / RULE) + 1;
+
   for (let i = 0; i < opts.items.length; i++) {
-    const item = opts.items[i]!;
-    y = await drawQuestion(pdf, opts.meta, opts.kind, item.sol, item.status, opts.lang, y);
+    const { sol, status } = opts.items[i]!;
+    const blocks = blocksFor(opts.kind, sol, status, opts.lang, i + 1).map((b) => ({ b, ...layoutBlock(pdf, b) }));
+    const image = sol.image_url ? await loadImage(sol.image_url) : null;
+    let imgW = 0, imgH = 0, imgRows = 0;
+    if (image) {
+      const scale = Math.min(260 / image.width, 160 / image.height, 1);
+      imgW = image.width * scale; imgH = image.height * scale;
+      imgRows = Math.ceil((imgH + 6) / RULE);
+    }
+    const rows = blocks.reduce((n, x) => n + x.lines.length, 0) + imgRows;
+    const remaining = Math.floor((CONTENT_BOTTOM - y) / RULE) + 1;
+    if (rows > remaining && (rows <= capacity || remaining < 4)) nextPage();
+
+    for (let bi = 0; bi < blocks.length; bi++) {
+      const { b, lw, lines } = blocks[bi]!;
+      const isOption = b.label.startsWith("(") && sol.type === "mcq" && bi > 0 && bi <= sol.options_en.length;
+      const x0 = TEXT_X + (isOption ? 14 : 0);
+      for (let li = 0; li < lines.length; li++) {
+        if (y > CONTENT_BOTTOM) nextPage();
+        if (li === 0) drawRun(pdf, b.label, x0, y - 5, b.labelStyle, TEXT_W);
+        drawRun(pdf, lines[li]!, x0 + lw, y - 5, b.textStyle, TEXT_W - lw - (x0 - TEXT_X));
+        y += RULE;
+      }
+      if (bi === 0 && image) {
+        if (y - RULE + imgRows * RULE > CONTENT_BOTTOM + RULE) nextPage();
+        pdf.addImage(image.data, image.format, TEXT_X + lw, y - RULE + 4, imgW, imgH, undefined, "FAST");
+        y += imgRows * RULE;
+      }
+    }
+    y += RULE; // blank ruled line between questions
     opts.onProgress?.(i + 1, opts.items.length);
-    if ((i + 1) % 5 === 0) await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+    if ((i + 1) % 10 === 0) await new Promise<void>((r) => window.setTimeout(r, 0));
   }
-  addFooters(pdf, opts.meta);
+
   const blob = pdf.output("blob");
   if (!blob.size) throw new Error("The generated PDF was empty");
   const filename = pdfFileName(opts.kind, opts.meta.testTitle);
   console.info("[result-pdf] generation completed", { filename, bytes: blob.size, pages: pdf.getNumberOfPages() });
   downloadBlob(blob, filename);
-  console.info("[result-pdf] download started", filename);
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.rel = "noopener";
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
