@@ -51,7 +51,16 @@ const C = {
   muted: [0x55, 0x5f, 0x6b] as RGB,
   green: [0x15, 0x80, 0x3d] as RGB,
   red: [0xb9, 0x1c, 0x1c] as RGB,
+  youtube: [0xe0, 0x24, 0x24] as RGB,
+  insta: [0xd1, 0x00, 0x56] as RGB,
 };
+
+/** Channel branding printed at the top of every PDF page. */
+const BRAND = {
+  youtube: "Aditya Exam Edge",
+  instagram: "@aditya_eiditz07",
+};
+
 
 const A4_W = 595.28;
 const A4_H = 841.89;
@@ -61,7 +70,12 @@ const TEXT_X = MARGIN_L + 8;
 const TEXT_W = MARGIN_R - 8 - TEXT_X;
 const RULE = 17; // ruled line spacing
 const FIRST_RULE = 56; // first ruled line y
-const CONTENT_TOP = FIRST_RULE + RULE * 2; // after compact header
+const BRAND_YT_Y = FIRST_RULE - 5; // channel name baseline
+const BRAND_IG_Y = FIRST_RULE + RULE - 5; // instagram handle baseline
+const SUBJECT_Y = FIRST_RULE + RULE * 2 - 5; // subject + test title baseline
+const HEADER_DIVIDER_Y = FIRST_RULE + RULE * 2 + 2; // navy rule under the header
+const CONTENT_TOP = FIRST_RULE + RULE * 3; // first question line, after the compact branded header
+
 const CONTENT_BOTTOM = A4_H - RULE;
 const FONT = "AEH-Noto";
 
@@ -179,6 +193,8 @@ async function loadImage(url: string, timeoutMs = 8000): Promise<{ data: string;
 
 function setDraw(pdf: JsPdfType, color: RGB) { pdf.setDrawColor(color[0], color[1], color[2]); }
 function setText(pdf: JsPdfType, color: RGB) { pdf.setTextColor(color[0], color[1], color[2]); }
+function setFill(pdf: JsPdfType, color: RGB) { pdf.setFillColor(color[0], color[1], color[2]); }
+
 
 function base64FromBuffer(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -259,7 +275,32 @@ function layoutBlock(pdf: JsPdfType, b: Block) {
   return { lw, lines: wrap(pdf, b.text, TEXT_W - lw, b.textStyle) };
 }
 
+/** Red YouTube play badge, drawn as vector so it stays crisp at header size. */
+function drawYouTubeMark(pdf: JsPdfType, x: number, baseline: number) {
+  const w = 18;
+  const h = 12.5;
+  const y = baseline - h + 2.5;
+  setFill(pdf, C.youtube);
+  pdf.roundedRect(x, y, w, h, 3.2, 3.2, "F");
+  setFill(pdf, [0xff, 0xff, 0xff] as RGB);
+  const cy = y + h / 2;
+  pdf.triangle(x + 6.6, cy - 3.4, x + 6.6, cy + 3.4, x + 12.9, cy, "F");
+}
+
+/** Instagram glyph — rounded square, lens and flash dot in the accent colour. */
+function drawInstagramMark(pdf: JsPdfType, x: number, baseline: number) {
+  const s = 11.5;
+  const y = baseline - s + 1.5;
+  setDraw(pdf, C.insta);
+  pdf.setLineWidth(1.3);
+  pdf.roundedRect(x, y, s, s, 3.4, 3.4, "S");
+  pdf.circle(x + s / 2, y + s / 2, 3, "S");
+  setFill(pdf, C.insta);
+  pdf.circle(x + s - 3.5, y + 3.5, 0.9, "F");
+}
+
 function drawPaper(pdf: JsPdfType, meta: PdfMeta, page: number) {
+
   // ruled lines
   setDraw(pdf, C.rule);
   pdf.setLineWidth(0.6);
@@ -274,23 +315,33 @@ function drawPaper(pdf: JsPdfType, meta: PdfMeta, page: number) {
   const pageLabel = `Page ${page}`;
   const pw = textWidth(pdf, pageLabel, { size: 9, color: C.ink, bold: false });
   drawRun(pdf, pageLabel, MARGIN_R - 10 - pw, 24, { size: 9, color: C.ink, bold: false }, 100);
-  setDraw(pdf, C.rule);
+  setDraw(pdf, C.heading);
   pdf.setLineWidth(0.6);
   pdf.line(MARGIN_R - 16 - pw, 28, MARGIN_R - 4, 28);
 
-  // heading
-  drawRun(pdf, "REFERENCE PAGE (Question & Answer)", TEXT_X, FIRST_RULE - 5, { size: 16, color: C.heading, bold: true }, TEXT_W);
-  // subject line
+  // channel branding — YouTube channel
+  drawYouTubeMark(pdf, TEXT_X, BRAND_YT_Y);
+  drawRun(pdf, `YT: ${BRAND.youtube}`, TEXT_X + 23, BRAND_YT_Y, { size: 15, color: C.heading, bold: true }, TEXT_W);
+
+  // channel branding — Instagram handle
+  drawInstagramMark(pdf, TEXT_X, BRAND_IG_Y);
+  const igStyle: Style = { size: 11, color: C.insta, bold: true };
+  const igw = drawRun(pdf, "Instagram: ", TEXT_X + 17, BRAND_IG_Y, igStyle, TEXT_W);
+  drawRun(pdf, BRAND.instagram, TEXT_X + 17 + igw, BRAND_IG_Y, { size: 11, color: C.ink, bold: true }, TEXT_W - 17 - igw);
+
+  // subject + test title
   const subject = plainText(meta.subject || "General");
   const title = plainText(meta.testTitle || "Revision");
   const subjStyle: Style = { size: 11, color: C.ink, bold: true };
-  const w = drawRun(pdf, "Subject: ", TEXT_X, FIRST_RULE + RULE - 5, subjStyle, TEXT_W);
+  const w = drawRun(pdf, "Subject: ", TEXT_X, SUBJECT_Y, subjStyle, TEXT_W);
   const value = wrap(pdf, `${subject} (${title})`, TEXT_W - w, { size: 11, color: C.ink, bold: false })[0] ?? "";
-  drawRun(pdf, value, TEXT_X + w, FIRST_RULE + RULE - 5, { size: 11, color: C.ink, bold: false }, TEXT_W - w);
-  // divider under header
+  drawRun(pdf, value, TEXT_X + w, SUBJECT_Y, { size: 11, color: C.ink, bold: false }, TEXT_W - w);
+
+  // navy divider under the header
   setDraw(pdf, C.heading);
-  pdf.setLineWidth(0.9);
-  pdf.line(TEXT_X, FIRST_RULE + RULE + 2, MARGIN_R - 8, FIRST_RULE + RULE + 2);
+  pdf.setLineWidth(1);
+  pdf.line(TEXT_X, HEADER_DIVIDER_Y, MARGIN_R - 8, HEADER_DIVIDER_Y);
+
 }
 
 function answerText(s: PdfSolution, opts: string[], value: PdfSolution["your_answer"]): string {
@@ -338,7 +389,7 @@ export async function generateResultPdf(opts: {
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ unit: "pt", format: "a4", orientation: "portrait", compress: true, putOnlyUsedFonts: true });
   await installFonts(pdf);
-  pdf.setProperties({ title: `Reference Page - ${opts.meta.testTitle}`, author: "Aditya Exam Hub", creator: "Aditya Exam Hub" });
+  pdf.setProperties({ title: `${opts.meta.testTitle} - Aditya Exam Edge`, author: "Aditya Exam Edge", creator: "Aditya Exam Hub" });
 
   let page = 1;
   drawPaper(pdf, opts.meta, page);
