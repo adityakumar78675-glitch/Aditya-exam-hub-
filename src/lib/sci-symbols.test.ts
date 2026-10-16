@@ -66,7 +66,7 @@ describe("bulk import acceptance (20 questions)", () => {
     ["Value of sqrt(2) is approximately", "1.414", "√2", "1.414"],
     ["As r tends to infinity, potential", "0", "∞", "0"],
     ["Water boils at", "100 degree Celsius", "boils", "100 °C"],
-    ["Alpha particle consists of", "2 protons and 2 neutrons", "Alpha particle", "2 protons and 2 neutrons"],
+    ["Alpha particle consists of", "2 protons and 2 neutrons", "α particle", "2 protons and 2 neutrons"],
     ["Area of circle = pi r^2. For r = 2,", "4pi", "π r²", "4π"],
     ["Planck constant h is", "6.63 x 10^-34 J s", "h is", "6.63 × 10⁻³⁴ J s"],
     ["Avogadro number", "6.022 x 10^23", "Avogadro", "6.022 × 10²³"],
