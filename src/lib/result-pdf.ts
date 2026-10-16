@@ -51,7 +51,16 @@ const C = {
   muted: [0x55, 0x5f, 0x6b] as RGB,
   green: [0x15, 0x80, 0x3d] as RGB,
   red: [0xb9, 0x1c, 0x1c] as RGB,
+  youtube: [0xe0, 0x24, 0x24] as RGB,
+  insta: [0xd1, 0x00, 0x56] as RGB,
 };
+
+/** Channel branding printed at the top of every PDF page. */
+const BRAND = {
+  youtube: "Aditya Exam Edge",
+  instagram: "@aditya_eiditz07",
+};
+
 
 const A4_W = 595.28;
 const A4_H = 841.89;
@@ -61,7 +70,12 @@ const TEXT_X = MARGIN_L + 8;
 const TEXT_W = MARGIN_R - 8 - TEXT_X;
 const RULE = 17; // ruled line spacing
 const FIRST_RULE = 56; // first ruled line y
-const CONTENT_TOP = FIRST_RULE + RULE * 2; // after compact header
+const BRAND_YT_Y = FIRST_RULE - 5; // channel name baseline
+const BRAND_IG_Y = FIRST_RULE + RULE - 5; // instagram handle baseline
+const SUBJECT_Y = FIRST_RULE + RULE * 2 - 5; // subject + test title baseline
+const HEADER_DIVIDER_Y = FIRST_RULE + RULE * 2 + 2; // navy rule under the header
+const CONTENT_TOP = FIRST_RULE + RULE * 3; // first question line, after the compact branded header
+
 const CONTENT_BOTTOM = A4_H - RULE;
 const FONT = "AEH-Noto";
 
@@ -179,6 +193,8 @@ async function loadImage(url: string, timeoutMs = 8000): Promise<{ data: string;
 
 function setDraw(pdf: JsPdfType, color: RGB) { pdf.setDrawColor(color[0], color[1], color[2]); }
 function setText(pdf: JsPdfType, color: RGB) { pdf.setTextColor(color[0], color[1], color[2]); }
+function setFill(pdf: JsPdfType, color: RGB) { pdf.setFillColor(color[0], color[1], color[2]); }
+
 
 function base64FromBuffer(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
