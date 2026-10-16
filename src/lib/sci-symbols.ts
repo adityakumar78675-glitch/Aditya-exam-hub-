@@ -65,7 +65,7 @@ export function correctScientific(input: string | null | undefined): string {
     (_m, base: string, a?: string, b?: string, c?: string) => base + toSup((a ?? b ?? c)!));
 
   // multiplication: "8.85 x 10", "3 X 10⁸", "2x10^5"
-  s = s.replace(/(\d)\s+[xX]\s+(?=[\d(])/g, "$1 × ");
+  s = s.replace(/([\dπ⁰¹²³⁴⁵⁶⁷⁸⁹])\s+[xX]\s+(?=[\d(])/g, "$1 × ");
   s = s.replace(/(\d)[xX](?=10)/g, "$1 × ");
   s = s.replace(/(\d)\s*\*\s*(?=\d)/g, "$1 × ");
 
