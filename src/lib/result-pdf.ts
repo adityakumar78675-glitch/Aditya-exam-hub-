@@ -365,7 +365,7 @@ export async function generateResultPdf(opts: {
 
   for (let i = 0; i < opts.items.length; i++) {
     const { sol, status } = opts.items[i]!;
-    const blocks = blocksFor(opts.kind, sol, status, opts.lang, i + 1).map((b) => ({ b, ...layoutBlock(pdf, b) }));
+    const blocks = blocksFor(opts.kind, sol, status, opts.lang, sol.number).map((b) => ({ b, ...layoutBlock(pdf, b) }));
     const image = sol.image_url ? await loadImage(sol.image_url) : null;
     let imgW = 0, imgH = 0, imgRows = 0;
     if (image) {
