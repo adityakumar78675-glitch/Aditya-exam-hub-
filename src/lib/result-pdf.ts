@@ -133,14 +133,8 @@ function plainText(input: string | null | undefined): string {
     .replace(/\r/g, "")
     .replace(/[\u2713\u2714]/g, "OK")
     .replace(/[\u2717\u2718\u2715]/g, "x")
-    .replace(/\u221A/g, "sqrt")
     .replace(/[\u2192\u21D2]/g, "->")
     .replace(/[\u2190\u21D0]/g, "<-")
-    .replace(/\u2264/g, "<=")
-    .replace(/\u2265/g, ">=")
-    .replace(/\u2260/g, "!=")
-    .replace(/\u2248/g, "~=")
-    .replace(/\u221E/g, "infinity")
     .replace(/[\u2022\u25CB\u25CF\u25A0\u25A1]/g, "-")
     .replace(/[\u2018\u2019]/g, "'")
     .replace(/[\u201C\u201D]/g, '"')
@@ -215,7 +209,8 @@ async function installFonts(pdf: JsPdfType) {
   pdf.setFont(FONT, "normal");
 }
 
-const DEVANAGARI = /[\u0900-\u097F]/;
+// Devanagari + math glyphs missing from the embedded Noto Sans are painted via canvas.
+const DEVANAGARI = /[\u0900-\u097F\u221A\u2264\u2265\u2260\u221E\u2248]/;
 
 /** jsPDF cannot shape Devanagari, so Hindi runs are painted through canvas (which shapes correctly). */
 function shapedImage(text: string, sizePt: number, color: RGB, bold: boolean) {
