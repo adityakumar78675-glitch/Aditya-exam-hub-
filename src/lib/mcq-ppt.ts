@@ -93,12 +93,17 @@ export async function buildMcqPpt(payload: PptPayload, layouts: QuestionLayout[]
   }
   const output = await ppt.write({ outputType: "blob", compression: true });
   if (!(output instanceof Blob)) throw new Error("PowerPoint generation did not return a valid file.");
-  return output;
+  // PptxGenJS returns a zip-typed blob; re-type it so browsers don't save it as .pptx.zip.
+  return new Blob([await output.arrayBuffer()], { type: PPTX_MIME });
 }
 
+export const PPTX_MIME = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+
 export function downloadPpt(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a"); a.href = url; a.download = filename;
+  const name = filename.replace(/(\.pptx)?(\.zip)?$/i, "") + ".pptx";
+  const file = new File([blob], name, { type: PPTX_MIME });
+  const url = URL.createObjectURL(file);
+  const a = document.createElement("a"); a.href = url; a.download = name; a.type = PPTX_MIME;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
