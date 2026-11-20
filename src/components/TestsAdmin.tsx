@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { Pencil, Trash2, Plus, ListChecks, ArrowLeft, Zap, Youtube } from "lucide-react";
 import { BulkQuestionsDialog } from "@/components/BulkQuestionsDialog";
 import { YoutubeImportDialog } from "@/components/YoutubeImportDialog";
+import { McqPptGenerator } from "@/components/McqPptGenerator";
 
 
 
@@ -67,6 +68,7 @@ export function TestsAdmin() {
   const qc = useQueryClient();
   const [editing, setEditing] = useState<Partial<TestRow> | null>(null);
   const [managing, setManaging] = useState<TestRow | null>(null);
+  const [pptMode, setPptMode] = useState(false);
 
   const { data: batches } = useQuery({
     queryKey: ["admin-batches-min"],
@@ -141,11 +143,15 @@ export function TestsAdmin() {
   if (managing) {
     return <QuestionsManager test={managing} onBack={() => setManaging(null)} />;
   }
+  if (pptMode) {
+    return <div className="space-y-4"><Button variant="ghost" onClick={() => setPptMode(false)}><ArrowLeft className="size-4" /> Test Management</Button><McqPptGenerator /></div>;
+  }
 
   return (
     <div>
       <div className="flex items-center justify-between gap-3 mb-4">
         <h2 className="font-semibold">Test Series</h2>
+        <Button size="sm" variant="outline" onClick={() => setPptMode(true)}>Download PPT</Button>
         <Button size="sm" onClick={() => setEditing(emptyTest())}>
           <Plus className="size-4 mr-1" /> New Test
         </Button>

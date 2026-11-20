@@ -7,6 +7,10 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 export default defineConfig({
+  vite: {
+    // Its browser build has guarded Node imports; don't prebundle their optional https package.
+    optimizeDeps: { include: ["pptxgenjs"], exclude: ["https"] },
+  },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this

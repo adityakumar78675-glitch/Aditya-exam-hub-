@@ -4,6 +4,17 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@font-face { font-family: "Noto Sans"; src: url("./assets/fonts/NotoSans-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Noto Sans"; src: url("./assets/fonts/NotoSans-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Noto Sans Devanagari"; src: url("./assets/fonts/NotoSansDevanagari-Regular.ttf") format("truetype"); font-weight: 100 900; font-display: swap; }
+
+:root { --ppt-navy: #073B8C; --ppt-blue: #1261C0; --ppt-red: #E51B23; --ppt-paper: #FFFFFF; --ppt-mist: #F5F7FA; --ppt-ink: #161D2A; }
+.ppt-slide { background-color: var(--ppt-paper); color: var(--ppt-ink); font-family: "Noto Sans", "Noto Sans Devanagari", sans-serif; letter-spacing: 0; }
+.ppt-heading { color: var(--ppt-navy); }
+.ppt-ink { color: var(--ppt-ink); }
+.ppt-option { background: var(--ppt-paper); border: 2px solid var(--ppt-blue); }
+.ppt-label { color: var(--ppt-paper); background: var(--ppt-blue); }
+
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

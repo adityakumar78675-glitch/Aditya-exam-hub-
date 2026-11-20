@@ -21,7 +21,17 @@ import { LectureUploader } from "@/components/LectureUploader";
 import { removeStorageObjects, formatBytes } from "@/lib/lecture-upload";
 
 
-export const Route = createFileRoute("/_authenticated/admin")({ component: AdminPage });
+export const Route = createFileRoute("/_authenticated/admin")({
+  component: AdminPage,
+  head: () => ({ meta: [
+    { title: "Admin Panel — Aditya Exam Hub" },
+    { name: "description", content: "Manage Aditya Exam Hub tests, questions, teaching presentations and learning content." },
+    { property: "og:title", content: "Admin Panel — Aditya Exam Hub" },
+    { property: "og:description", content: "Admin tools for tests, teaching presentations and learning content." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
+});
 
 const CLASSES = ["Class 11th", "Class 12th", "JEE", "NEET", "Bihar Board", "Dropper"];
 
